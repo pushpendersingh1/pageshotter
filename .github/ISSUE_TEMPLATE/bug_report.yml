@@ -1,0 +1,70 @@
+name: Capture problem or bug
+description: A page that captures wrong, an export that looks off, or anything else that breaks.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are public. **Do not post private or internal URLs, logged-in pages, credentials or
+        confidential screenshots.** Describe the page instead, or link a public page with the same
+        layout. To report something privately, use the support address on
+        [pageshotter.com/support](https://www.pageshotter.com/support/).
+  - type: textarea
+    id: what
+    attributes:
+      label: What went wrong
+      description: What you saw, and what you expected instead.
+      placeholder: The sticky header appears in every section of the full-page capture.
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Public page address
+      description: Only if the page is public. A page that reproduces the problem is the most useful thing you can send.
+      placeholder: https://example.com/long-article
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Where it happened
+      options:
+        - Full page capture
+        - Visible area capture
+        - Selection or element capture
+        - Editor
+        - Present
+        - Export (PNG, JPEG, WebP or PDF)
+        - History
+        - Settings or popup
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the page and scroll to the top
+        2. Click Full page in the popup
+        3. Open the result
+  - type: input
+    id: version
+    attributes:
+      label: PageShotter version
+      description: Shown on `chrome://extensions`.
+      placeholder: 1.5.0
+    validations:
+      required: true
+  - type: input
+    id: chrome
+    attributes:
+      label: Chrome version and operating system
+      description: The version is at the top of `chrome://version`.
+      placeholder: Chrome 141 on macOS 15
+    validations:
+      required: true
+  - type: textarea
+    id: shots
+    attributes:
+      label: Screenshots
+      description: Optional. Crop or blur anything personal before attaching.
