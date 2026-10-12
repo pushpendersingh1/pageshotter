@@ -1,10 +1,32 @@
-# PageShotter
+<p align="center">
+  <a href="https://www.pageshotter.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-dark.svg" />
+      <img src=".github/assets/logo.svg" alt="PageShotter" width="296" height="70" />
+    </picture>
+  </a>
+</p>
 
-Full-page, visible-area and selection screenshots for Chrome, captured and edited entirely on your
-own computer. Export PNG, JPEG, WebP, or a PDF with searchable text and clickable links.
+<p align="center">
+  Full-page, visible-area and selection screenshots for Chrome, captured and edited entirely on your
+  own computer. Export PNG, JPEG, WebP, or a PDF with searchable text and clickable links.
+</p>
 
-[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf) ·
-[Website](https://www.pageshotter.com) · [Privacy policy](https://www.pageshotter.com/privacy/)
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf"><img src="https://img.shields.io/chrome-web-store/v/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20Web%20Store&amp;color=E11900" alt="Chrome Web Store version" /></a>
+  <a href="https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml"><img src="https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml/badge.svg" alt="verify" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/pushpendersingh1/pageshotter" alt="MIT License" /></a>
+</p>
+
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf"><strong>Install from the Chrome Web Store</strong></a> ·
+  <a href="https://www.pageshotter.com">Website</a> ·
+  <a href="https://www.pageshotter.com/privacy/">Privacy policy</a>
+</p>
+
+<p align="center">
+  <img src=".github/assets/screenshots/full-page.jpg" alt="The PageShotter popup next to a full-page capture of a long article" width="800" />
+</p>
 
 ## What it does
 
@@ -19,6 +41,17 @@ own computer. Export PNG, JPEG, WebP, or a PDF with searchable text and clickabl
 - **Present.** Wrap a capture in a mock browser window with a background, margin, corners, shadow
   and date stamp.
 - **History.** Reopen and re-export earlier captures, and search them by the words on the page.
+
+<table>
+  <tr>
+    <td><img src=".github/assets/screenshots/markup.jpg" alt="Editor: numbered steps, a highlight, a blurred email and an arrow on a settings page" /></td>
+    <td><img src=".github/assets/screenshots/present.jpg" alt="Present: a capture inside a mock browser window on a gradient background" /></td>
+  </tr>
+  <tr>
+    <td><img src=".github/assets/screenshots/pdf-export.jpg" alt="PDF export: searching the text of an exported page in a PDF viewer" /></td>
+    <td><img src=".github/assets/screenshots/history.jpg" alt="History: finding earlier captures by a sentence on the page" /></td>
+  </tr>
+</table>
 
 ## Privacy
 
@@ -67,7 +100,8 @@ tests/          Vitest unit tests (plain Node, no DOM) and the fixture corpus
 
 ## Contributing
 
-Bug reports and feature ideas are welcome as [issues](../../issues). For a pull request, keep it to
+The most useful report is a public page that captures wrong: [open an issue](../../issues) with
+its address, what you expected and what you got. Feature ideas are welcome there too. For a pull request, keep it to
 one change, run `npm run verify`, and read [`AGENTS.md`](AGENTS.md) first: a change that adds a
 permission, sends anything off the device or special-cases a website will not be merged. If a change
 affects what a capture looks like, say which fixtures you checked by hand.
