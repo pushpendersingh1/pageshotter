@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+*.zip
+.DS_Store
+pageshotter-extension/
+
+# Personal, machine-local notes and agent configuration
+CLAUDE.local.md
+.claude/
+.codegraph/
+.vscode/

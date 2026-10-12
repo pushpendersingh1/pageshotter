@@ -1,0 +1,372 @@
+/*
+ * Settings, in the design language. The page frame comes from `page-frame.css` and the colours from
+ * `tokens.css`; nothing here declares one of its own.
+ *
+ * Only shipped preferences live here: retention/capture behaviour, the export choices already
+ * persisted by the result page, the download folder and Chrome's own shortcut handoff. It is not a
+ * lobby for speculative settings.
+ */
+
+.meta { margin: 3px 0 0; font: 400 12px/1.4 var(--ui); color: var(--ink-2); }
+
+.work {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 22px 18px 28px;
+  background: var(--stage);
+}
+
+/* A card, by border and not by shadow -- shadows are kept for the popup shell and for a capture. */
+.group {
+  display: grid;
+  /*
+   * Between settings, not inside one. A setting is a `.field`: its row and the sentence explaining
+   * it are 5px apart, and one setting stands 18px from the next. That difference is the only thing
+   * telling a reader which sentence belongs to which control -- with the single 12px gap this used
+   * to have, a description sat exactly as far from its own row as from the unrelated setting below
+   * it, and read as floating between the two.
+   */
+  gap: 18px;
+  max-width: 760px;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.group .eyebrow { margin: 0; display: flex; align-items: center; gap: 7px; }
+/* Section 8: 16px box, stroked, never filled and never in a circle. The accent marks the section
+   the way it marks state everywhere else. */
+.group .eyebrow .icon { width: 14px; height: 14px; color: var(--accent); }
+
+/*
+ * One setting: the row that carries its label and control, and the sentence that explains it. The
+ * sentence is a sibling of the row rather than a child, so it starts on a new line at the group's
+ * full width instead of wrapping into a narrow column beside the control -- and the field's own
+ * small gap is what keeps it attached to the row above it rather than adrift between two settings.
+ *
+ * A `.field` is also the unit that shows and hides, which is why the downloads-permission row and
+ * its sentence disappear together without any JavaScript knowing there are two elements.
+ */
+/*
+ * One setting: a text block and its control, side by side.
+ *
+ * The label and its sentences are one element (`.field-text`) rather than two siblings the grid
+ * happens to place in the same column. That is what keeps them together -- an earlier version did
+ * this with `display: contents` on the row and per-child `grid-column` rules, which put them in the
+ * right places but left them structurally unrelated, so the gap between a label and its own
+ * sentence was set by the same `row-gap` as the gap between unrelated things. A heading and its
+ * subheading are now grouped structurally.
+ *
+ * The control column is `auto`: it is as wide as the control needs and no wider. A fixed column was
+ * tried so every dropdown would share one right edge, and it bought that alignment by making every
+ * dropdown much wider than its longest option.
+ */
+.field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 24px;
+  align-items: center;
+}
+/* 2px, because these two belong to each other. Settings stand 18px apart -- see `.group`. */
+.field-text { display: grid; gap: 2px; }
+.row-label { min-width: 0; font: 600 14px/1.35 var(--ui); color: var(--ink); }
+
+/* A control too wide to sit beside its label takes the full width beneath it. */
+.field-block { grid-template-columns: minmax(0, 1fr); row-gap: 9px; }
+
+.btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 13px;
+  white-space: nowrap;
+  font: 600 13px/1 var(--ui);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.btn:not(:disabled):hover { background: var(--surface); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.btn:not(:disabled):active { transform: translateY(1px); }
+.btn:disabled { cursor: not-allowed; opacity: .55; }
+.btn .icon { width: 15px; height: 15px; }
+
+/* An assigned binding is a machine fact, so it is set as a key rather than quoted in the prose. */
+.key {
+  display: inline-block;
+  padding: 2px 6px;
+  font: 600 11.5px/1.35 var(--mono);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+select {
+  flex: none;
+  height: 34px;
+  padding: 0 10px;
+  font: 500 13px/1 var(--ui);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: var(--surface); }
+
+.note { margin: 0; font: 400 12.5px/1.6 var(--ui); color: var(--ink-2); }
+
+/*
+ * What is on disk right now, and what the last change did to it. Mono because every figure in it is
+ * a count or a size, and separated by a rule because it reports rather than instructs -- a setting
+ * that says what it just did is the difference between a control that worked and one that seemed to
+ * do nothing.
+ */
+.status {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font: 500 11.5px/1.5 var(--mono);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.status:empty { display: none; }
+
+/* More than one card now, so they need the same 14px gap the rest of the system uses between cards. */
+.work { display: grid; gap: 14px; align-content: start; }
+
+/* Page-level action, intentionally outside every card: resetting is not another configurable
+   setting. It asks for confirmation and reports completion in the alert directly beneath it. */
+.settings-actions { display: flex; max-width: 760px; justify-content: flex-end; padding: 4px 0; }
+.action-alert { max-width: 760px; margin: 0; padding: 11px 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--accent); border-radius: 9px; font: 600 12.5px/1.5 var(--ui); }
+.action-alert[data-state='problem'] { color: var(--accent); }
+
+@media (max-width: 560px) {
+  .bar { padding: 12px 14px; }
+  .work { padding: 16px 14px 22px; }
+  .field { grid-template-columns: minmax(0, 1fr); row-gap: 8px; }
+  .btn { justify-content: center; }
+  .settings-actions { justify-content: stretch; }
+  .settings-actions .btn { width: 100%; }
+}
+
+/*
+ * The folder box. Same shape as the retention select beside it, so the Saving group reads as one
+ * row of controls rather than a text field bolted onto a list of dropdowns.
+ */
+#download-folder {
+  flex: none;
+  width: min(210px, 38vw);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 13.5px/1.2 var(--ui);
+  padding: 9px 11px;
+}
+#download-folder:focus-visible { border-color: var(--select); }
+#download-folder.invalid { border-color: var(--accent); }
+/* 14px is the floor for --accent on a light ground; see design-language section 11. */
+.note.problem { color: var(--accent); font-size: 14px; }
+.folder-controls { flex: none; display: flex; align-items: center; gap: 8px; }
+.folder-status { font-size: 12.5px; }
+
+/* Whether the optional permission is actually held. A word, not only a colour: section 5 forbids
+   colour alone carrying meaning, so the state is spelled out and the tone only reinforces it. */
+.perm-state {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font: 500 10.5px/1 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  vertical-align: 1px;
+}
+.perm-state[data-state='granted'] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.explain { margin-top: 4px; }
+.explain summary {
+  cursor: pointer;
+  font: 500 13px/1.4 var(--ui);
+  color: var(--ink-2);
+  padding: 6px 0;
+}
+.explain summary:hover { color: var(--ink); }
+.explain-body { display: grid; gap: 9px; padding: 4px 0 8px; }
+.explain-body p { margin: 0; font: 400 13px/1.6 var(--ui); color: var(--ink-2); }
+.explain-body code {
+  font: 500 12px/1.4 var(--mono);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: var(--ink);
+}
+
+@media (max-width: 560px) {
+  .folder-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  #download-folder { width: 100%; min-width: 0; }
+}
+
+/*
+ * ---------- the three control shapes ----------
+ *
+ * Every control on this page used to be a `<select>`, which is correct for a long list and wrong
+ * for everything else: a boolean read as a list of two, and four page sizes read as four words.
+ * The segmented control already existed; it was simply never used here. The rule now:
+ *
+ *   long list (retention, scroll pause, quality, size)  -> `<select>`
+ *   short enumeration worth seeing at once (file type)  -> `.seg`
+ *   a boolean                                           -> `.switch`
+ *   a choice with a shape to show (PDF page size)       -> `.choices`
+ *
+ * All three are native inputs rather than `aria-pressed` buttons, so arrow-key roving, focus and
+ * the accessible name come from the platform and no keyboard code is written here.
+ *
+ * ponytail: `.seg` is the same recipe as `editor.css` and `export-menu.css`, which are on their own
+ * sheets and cannot reach this one. Three copies is the ceiling -- if a fourth surface wants one,
+ * lift all four into a shared `controls.css` rather than copying it again.
+ */
+
+.seg {
+  flex: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.seg label {
+  position: relative;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 6px 12px;
+  color: var(--ink-2);
+  border-radius: 7px;
+  font: 600 11.5px/1 var(--mono);
+  letter-spacing: .02em;
+  transition: color 160ms ease, background 160ms ease;
+}
+.seg label:hover { color: var(--ink); }
+.seg input { position: absolute; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+/*
+ * The pressed segment and an on switch are filled `--ink`, not red. Red is reserved for the thing
+ * that is acting; a settings page has no such thing, and filling every chosen segment and every on
+ * switch with it left four or five reds competing on one screen.
+ */
+.seg label:has(input:checked) { color: var(--surface); background: var(--ink); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--select); outline-offset: 2px; }
+
+/*
+ * A real switch, because the thing it controls is on or off. `role="switch"` is on the input so the
+ * announcement is "on"/"off" rather than "checked"; the shape below is drawn from the same
+ * `--surface-2` well the segmented control uses, so the two read as one family.
+ */
+.switch {
+  flex: none;
+  cursor: pointer;
+  position: relative;
+  margin: 0;
+  width: 42px;
+  height: 24px;
+  padding: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  appearance: none;
+  transition: background 180ms ease, border-color 180ms ease;
+}
+.switch::after {
+  content: '';
+  box-sizing: border-box;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: var(--knob);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  transition: transform 180ms ease;
+}
+.switch:hover { border-color: color-mix(in srgb, var(--ink) 45%, var(--line)); }
+.switch:checked { background: var(--ink); border-color: var(--ink); }
+.switch:checked::after { transform: translateX(18px); }
+
+/*
+ * Page sizes, shown at their real proportions. The aspect ratio and the printed dimension both come
+ * from `PDF_PAPERS` rather than being drawn by eye, so the glyph cannot drift from the paper the
+ * writer actually emits.
+ */
+.field-block { gap: 9px; }
+.choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 8px; }
+.choice {
+  position: relative;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  padding: 11px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.choice:hover { background: var(--surface); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.choice input { position: absolute; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.choice:has(input:checked) { background: var(--surface); border-color: var(--ink); }
+.choice:has(input:focus-visible) { outline: 2px solid var(--select); outline-offset: 2px; }
+
+/* The paper itself. `aspect-ratio` is the whole illustration: no SVG, and it cannot be wrong. */
+.page-glyph {
+  width: 26px;
+  background: var(--surface);
+  border: 1px solid var(--ink-2);
+  border-radius: 2px;
+}
+.choice:has(input:checked) .page-glyph { border-color: var(--accent); background: var(--accent-soft); }
+/* `fit` has no paper, so it is drawn as an open-ended strip rather than a sheet. */
+.page-glyph[data-paper='fit'] { border-style: dashed; }
+
+.choice-name { font: 600 13px/1.3 var(--ui); color: var(--ink); }
+.choice-dim { font: 500 11px/1.3 var(--mono); color: var(--ink-2); }
+
+/*
+ * A warning that is only true sometimes. The static sentence beneath a control says what it does;
+ * this one appears only while the setting it names is actually inert, which is the difference
+ * between a page that documents itself and one that makes you work out the interaction.
+ */
+.note.caution { color: var(--accent); font-size: 12.5px; }
+.note.caution[hidden] { display: none; }
+
+@media (max-width: 560px) {
+  /* The cards stack, the segmented control does not: four labels this short still fit across a
+     390px column, and stacking them cost 108px of height to say the same thing. */
+  .choices { grid-template-columns: 1fr; }
+  .seg label { padding-inline: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch, .switch::after, .seg label, .choice { transition: none; }
+}
+
+.choice-text { display: grid; gap: 1px; }

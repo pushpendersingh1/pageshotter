@@ -1,0 +1,490 @@
+/*
+ * The popup, in the design language. Tokens come from `tokens.css`; nothing here declares a colour.
+ *
+ * The reference mock draws the popup as a floating card with its own border, radius and shadow
+ * because it sits on a demo page. A real Chrome popup *is* the window -- Chrome supplies the corner
+ * radius and the shadow -- so the card chrome is dropped here and the body carries the surface. That
+ * is the one deliberate departure from the mock.
+ */
+
+body { width: 360px; background: var(--surface); color: var(--ink); }
+
+/* ---------- head ---------- */
+
+.head { display: flex; align-items: center; gap: 12px; padding: 14px 16px 12px; }
+.lockup { display: block; width: 150px; height: auto; color: var(--ink); }
+
+/*
+ * One button rather than three, because two of the states are rarely wanted and a segmented control
+ * would spend a third of a 360px head on a preference. The icon names the state it is *in*; the
+ * label names the state it will move to, which is what a title on a cycling control has to say.
+ */
+.theme {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+.theme:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.theme .icon { width: 14px; height: 14px; }
+
+/*
+ * Mono, uppercase and tracked out: an eyebrow names the region below it and is never read as a
+ * heading competing with the controls.
+ */
+.eyebrow {
+  display: block;
+  font: 600 10px/1 var(--mono);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* ---------- actions ---------- */
+
+/*
+ * The window must not resize between states, so `.actions` reserves the height of the idle buttons
+ * and the panels sit inside it. `align-content: start` puts a panel where the buttons were rather
+ * than stretching it to fill the area with accent-soft.
+ */
+.actions { display: grid; align-content: start; padding: 2px 16px 14px; min-height: 202px; }
+/*
+ * `.busy` is every state where a panel has replaced the controls -- a capture running, and a capture
+ * that stopped. Neither has to hold the window's height, and holding it was costing most of the
+ * popup: the reservation above kept the idle buttons' 202px while the recent list and footer stayed
+ * in flow to keep the total steady, so a panel a third of that size sat above a field of empty
+ * surface. Measured on the stopped panel: 150px of content in a 202px box, under 209px of invisible
+ * list and footer.
+ *
+ * Neither state can be returned to without the window resizing anyway -- the panel replaces the
+ * controls until the capture ends or is retried -- so there is no jump here to protect against.
+ *
+ * `display: none` rather than `visibility: hidden`, because the point is to reclaim the space and
+ * not merely to stop painting it. It also keeps them out of the tab order, which the previous rule
+ * was relying on `visibility` for.
+ */
+.busy .recent, .busy .foot { display: none; }
+.busy .actions { min-height: 0; }
+
+/* `align-content: start` keeps the buttons their own size; only the panels stretch. */
+#idle { display: grid; align-content: start; gap: 8px; }
+#idle > .eyebrow { margin: 4px 0; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/*
+ * A capture button and its shortcut chip are two controls that overlap, so the chip is a sibling
+ * positioned over the button rather than a child of it. Nesting it would either make it unclickable
+ * or nest a button inside a button, and the chip has its own job: it opens Chrome's shortcut page.
+ */
+.slot { position: relative; }
+
+.btn {
+  position: relative;
+  appearance: none;
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  font-family: var(--ui);
+  transition: border-color 160ms ease, background 160ms ease, transform 60ms ease;
+}
+.btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: var(--surface); }
+.btn:active { transform: translateY(1px); }
+.btn .label { display: block; font: 600 14px/1.2 var(--ui); letter-spacing: -0.005em; }
+.btn .sub { display: block; margin-top: 3px; font-size: 11.5px; color: var(--ink-2); }
+
+.primary {
+  display: grid;
+  grid-template-columns: 17px 1fr;
+  column-gap: 10px;
+  align-items: center;
+  padding: 14px 18px;
+  color: var(--on-accent);
+  /*
+   * The brand red, not the deepened one: this button is where the product shows its own colour.
+   * White on #FF0000 is 4.0:1, so the 14px/600 label is the smallest text allowed to sit on it --
+   * the 11.5px sub-label is 76% of the same colour on top of that and is deliberately secondary.
+   * The label is `--on-accent` rather than white outright: the dark theme lifts this fill to
+   * #FF4B3A, where white reaches 3.3:1 and near-black reaches 5.2:1.
+   */
+  background: var(--accent-hi);
+  border-color: var(--accent-hi);
+}
+.primary .ico { grid-area: 1 / 1; display: flex; }
+.primary .label { grid-area: 1 / 2; }
+.primary .sub { grid-area: 2 / 2; color: var(--on-accent-2); }
+/* `brightness()` cannot lift a channel already at 255, so hover deepens to `--accent` instead. */
+.primary:hover { background: var(--accent); border-color: var(--accent); }
+
+.cell { display: block; }
+.cell .ico { display: block; color: var(--ink-2); }
+.cell .label { margin-top: 9px; }
+.cell:hover .ico { color: var(--accent); }
+
+/* ---------- viewfinder: the primary action is being aimed ---------- */
+
+.frame { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+.frame i {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border: 1.6px solid currentColor;
+  opacity: 0.4;
+  transition:
+    top 240ms cubic-bezier(0.2, 0.85, 0.25, 1),
+    left 240ms cubic-bezier(0.2, 0.85, 0.25, 1),
+    right 240ms cubic-bezier(0.2, 0.85, 0.25, 1),
+    bottom 240ms cubic-bezier(0.2, 0.85, 0.25, 1),
+    opacity 200ms ease;
+}
+.frame i:nth-child(1) { top: 8px; left: 8px; border-right: 0; border-bottom: 0; border-radius: 3px 0 0 0; }
+.frame i:nth-child(2) { top: 8px; right: 8px; border-left: 0; border-bottom: 0; border-radius: 0 3px 0 0; }
+.frame i:nth-child(3) { bottom: 8px; left: 8px; border-right: 0; border-top: 0; border-radius: 0 0 0 3px; }
+.frame i:nth-child(4) { bottom: 8px; right: 8px; border-left: 0; border-top: 0; border-radius: 0 0 3px 0; }
+
+/* Rangefinder marks appear only once the frame has locked. */
+.frame::before, .frame::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 1.6px;
+  background: currentColor;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 180ms ease 160ms;
+}
+.frame::before { left: 5px; }
+.frame::after { right: 5px; }
+
+/*
+ * The corners tighten in sequence, 0/50/100/150ms. That stagger is the product's signature gesture
+ * and is fixed: retiming it is a brand change, not a tuning knob.
+ */
+.primary:hover .frame i, .primary:focus-visible .frame i { opacity: 0.95; }
+.primary:hover .frame i:nth-child(1), .primary:focus-visible .frame i:nth-child(1) { top: 5px; left: 5px; transition-delay: 0ms; }
+.primary:hover .frame i:nth-child(2), .primary:focus-visible .frame i:nth-child(2) { top: 5px; right: 5px; transition-delay: 50ms; }
+.primary:hover .frame i:nth-child(3), .primary:focus-visible .frame i:nth-child(3) { bottom: 5px; left: 5px; transition-delay: 100ms; }
+.primary:hover .frame i:nth-child(4), .primary:focus-visible .frame i:nth-child(4) { bottom: 5px; right: 5px; transition-delay: 150ms; }
+.primary:hover .frame::before, .primary:hover .frame::after,
+.primary:focus-visible .frame::before, .primary:focus-visible .frame::after { opacity: 0.75; }
+
+/* The shutter: fired once, when the exposure actually happens. */
+.flash {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+.primary.shooting .flash { animation: shutter 300ms ease-out; }
+@keyframes shutter { 0% { opacity: 0; } 16% { opacity: 0.8; } 100% { opacity: 0; } }
+.primary.shooting .frame i { opacity: 1; transition-duration: 90ms; transition-delay: 0ms; }
+.primary.shooting .frame i:nth-child(1) { top: 3px; left: 3px; }
+.primary.shooting .frame i:nth-child(2) { top: 3px; right: 3px; }
+.primary.shooting .frame i:nth-child(3) { bottom: 3px; left: 3px; }
+.primary.shooting .frame i:nth-child(4) { bottom: 3px; right: 3px; }
+
+/* ---------- shortcut chips ---------- */
+
+/*
+ * Mono, because a key binding is a machine fact and not prose. An unassigned binding is drawn as a
+ * dashed accent outline rather than hidden: the route to Chrome's shortcut page is the whole point
+ * of the chip, and a shortcut Chrome assigned automatically is exactly the kind that collides with
+ * another extension's, so the route stays offered either way.
+ */
+.kbd {
+  position: absolute;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: 600 10.5px/1 var(--mono);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  background: var(--on-accent-wash);
+  color: var(--on-accent);
+}
+.slot .primary + .kbd { top: 14px; right: 18px; }
+.slot .cell + .kbd { top: 11px; right: 11px; background: var(--surface); border-color: var(--line); color: var(--ink-2); }
+/* The modifiers are drawn, not typed: at 10.5px the Mac glyphs are unreadable in a UI face, and
+ * the chip is already the box, so each key sits inside it rather than in a box of its own. */
+.kbd { gap: 3px; }
+.chip-glyph { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.kbd:hover { filter: brightness(1.1); }
+.slot .cell + .kbd:hover { border-color: var(--accent); color: var(--accent); filter: none; }
+.kbd.unset { border-style: dashed; border-color: var(--on-accent-line); }
+.slot .cell + .kbd.unset { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+
+/* ---------- capture in progress ---------- */
+
+/*
+ * `min-width: 0` is load-bearing. These are grid items of `.actions`, so they default to
+ * `min-width: auto` -- wide enough for their widest content -- and a Chrome popup is sized to the
+ * document, so anything that cannot shrink resizes the **window**. A 124-section progress bar did
+ * exactly that, taking the popup from 360px to 423px mid-capture. Measured: without this, the
+ * clipping on the bar itself has no effect at all, because the overflow never reaches it.
+ */
+#capturing, #error { display: flex; flex-direction: column; height: 100%; min-width: 0; }
+/*
+ * No `min-height` on either. The 186px one that used to be here was reserving room for the segment
+ * bar and section count that appear a second into a capture -- but `.segs.unmeasured` already holds
+ * that row open at its own height, and the reservation was overridden in the only state it could
+ * ever have applied to. On `#error` it was pure dead space: the panel ran 53px below its own last
+ * line, because a shape held open for something that is not coming is just whitespace.
+ */
+#capturing > .eyebrow, #error > .eyebrow { margin: 4px 0 12px; }
+
+.panel {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 13px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: var(--r);
+  background: var(--accent-soft);
+}
+.panel .frame { color: var(--accent); }
+.panel .frame i { opacity: 0.5; animation: breathe 1700ms ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { opacity: 0.28; } 50% { opacity: 0.75; } }
+
+/* The sweep says the page is being read *right now*; it never runs while nothing is happening. */
+.scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  pointer-events: none;
+  opacity: 0.5;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: sweep 1500ms cubic-bezier(0.55, 0, 0.45, 1) infinite;
+}
+@keyframes sweep { 0% { top: -2px; } 100% { top: 100%; } }
+
+.panel-head { display: flex; align-items: baseline; gap: 10px; }
+.panel-title { font: 600 14px/1.2 var(--ui); letter-spacing: -0.005em; color: var(--ink); }
+.panel-count { margin-left: auto; font: 500 11px/1 var(--mono); color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.panel-count b { font-weight: 600; color: var(--accent); }
+
+/*
+ * One segment per section the capture is actually going to take. The bar is drawn from the job's own
+ * section count, so it can never imply progress the capture is not making -- when there is no count
+ * to draw (a single-frame grab, or before the page has been measured) the bar is unpainted rather
+ * than faked.
+ *
+ * Unpainted, and not removed. The row keeps its height either way, so the window does not jump the
+ * moment the page finishes measuring and the bar appears -- which is the one resize a user is
+ * actually looking at, since it lands a second after they clicked. `min-height` is the segment
+ * height itself rather than a measured constant, so the reservation cannot drift from what it
+ * reserves. `visibility` also takes the progressbar off the accessibility tree while it has nothing
+ * to report.
+ */
+/*
+ * Flex gaps do not shrink, so a row of N segments has an automatic minimum size of at least
+ * (N-1) x 3px. At 124 sections that was 369px in a 360px popup, every segment measured **0px**, and
+ * the overflow escaped through `#capturing` and widened the popup window to 423px.
+ *
+ * The count is capped in script (`progress-bar.ts`) so the bar stays legible; this clips, so a count
+ * that ever slips past the cap is cut off rather than drawn wrong. It is not by itself a guard
+ * against the resize -- that is `min-width: 0` on `#capturing`, without which this has no effect.
+ */
+.segs { --seg-h: 4px; display: flex; gap: 3px; min-height: var(--seg-h); min-width: 0; overflow: hidden; }
+.segs.unmeasured { visibility: hidden; }
+.seg { flex: 1; height: var(--seg-h); border-radius: 2px; background: var(--line); transition: background 200ms ease; }
+.seg.done { background: var(--accent); }
+.seg.now { background: var(--accent); animation: breathe 900ms ease-in-out infinite; }
+
+.panel-foot { display: flex; align-items: center; gap: 10px; }
+.panel-status { font-size: 11.5px; color: var(--ink-2); }
+.panel-status .dim { font: 500 11px/1 var(--mono); font-variant-numeric: tabular-nums; }
+/* A middot only when there is something to separate, so an empty estimate leaves no dangling dot. */
+.panel-status .dim:not(:empty)::before { content: " · "; }
+.quiet {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  font: 500 12px/1 var(--ui);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+.quiet:hover { border-color: var(--accent); color: var(--accent); }
+.quiet .stop-mark { width: 8px; height: 8px; flex: none; border-radius: 2px; background: var(--accent); }
+.quiet .icon { width: 14px; height: 14px; }
+
+/* ---------- error ---------- */
+
+/*
+ * The error shares the capture panel's shape and colour on purpose: red marks whatever is acting or
+ * needs attention, and a second hue for failure would be the system's only other accent.
+ */
+#error .panel { justify-content: flex-start; }
+.panel-message { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ink-2); }
+
+/* ---------- recent ---------- */
+
+.recent { border-top: 1px solid var(--line); padding: 12px 16px 14px; }
+/*
+ * Baseline-aligned rather than centred: the eyebrow is 10px mono and the link is 12px UI, and
+ * centring two different sizes leaves neither sitting on the line the list below starts from.
+ */
+.recent-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 8px; }
+
+/*
+ * The one text link in the popup. Underlined on hover rather than always, because a permanently
+ * underlined link beside an uppercase mono eyebrow reads as two competing labels.
+ */
+.link {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  font: 500 12px/1 var(--ui);
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+}
+.link:hover { color: var(--accent); text-decoration: underline; }
+.link:focus-visible { outline-offset: 3px; border-radius: 3px; }
+.link .icon { width: 13px; height: 13px; }
+/*
+ * The eyebrow is already mono, so the count only has to drop the tracking -- 0.13em between two
+ * parentheses and a digit reads as three separate marks rather than one number.
+ */
+.eyebrow .count { letter-spacing: 0; font-variant-numeric: tabular-nums; }
+#shots { height: 126px; overflow-y: auto; overscroll-behavior: contain; }
+#shots::-webkit-scrollbar { width: 6px; }
+#shots::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+.empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 12px;
+  text-align: center;
+  background: var(--surface-2);
+  border: 1px dashed var(--line);
+  border-radius: var(--r);
+}
+.empty .icon { width: 30px; height: 30px; stroke-width: 1.5; color: var(--ink-2); opacity: 0.65; }
+.empty p { margin: 0; font: 500 12.5px/1.3 var(--ui); color: var(--ink); }
+.empty-hint { font-size: 11.5px; color: var(--ink-2); }
+
+.shot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 0;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+.shot + .shot { border-top: 1px solid var(--line); border-radius: 0; }
+.shot:hover .site { color: var(--accent); }
+/*
+ * A fixed frame with the image pinned to its top edge. A full-page capture is many times taller than
+ * it is wide, so sizing the row to the thumbnail would make every row a different height.
+ */
+.thumb {
+  width: 34px;
+  height: 26px;
+  flex: none;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.thumb img { display: block; width: 100%; height: auto; }
+.shot .site { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 500; }
+/*
+ * `flex: none` and `nowrap` together: the dimensions are the column a person compares between rows,
+ * so they hold their place and their single line. Everything the row cannot fit comes out of the
+ * site name, which ellipsises -- a title long enough to wrap the numbers was folding them onto a
+ * second line and making every row a different height.
+ */
+.shot .dims {
+  margin-left: auto;
+  flex: none;
+  white-space: nowrap;
+  font: 500 11px/1 var(--mono);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- foot ---------- */
+
+/*
+ * The version on one end and the only remaining destination on the other. History moved up to the
+ * Recent header, where it is next to the thing it is a longer list of; leaving it here as well would
+ * have been two routes to one page in a 360px window.
+ */
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 6px 0 16px;
+  border-top: 1px solid var(--line);
+}
+/*
+ * The privacy claim, restored to the surface it is truest on. It sits in the quietest slot
+ * deliberately: it is a standing fact about the product, not a thing that just happened, and a
+ * reassurance that shouts is read as a defence.
+ *
+ * The old popup put a green dot in front of it. Section 5 allows no second accent hue, and a green
+ * mark would have been one -- so this is words alone, which is also the only form the claim can take
+ * without implying it is a live status the extension is checking.
+ */
+.privacy { font-size: 11.5px; color: var(--ink-2); }
+.foot button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 10px;
+  border-radius: 8px;
+  font: 500 12.5px/1 var(--ui);
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+}
+.foot button:hover { color: var(--ink); background: var(--surface-2); }
+.foot .icon { width: 15px; height: 15px; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* A sweep frozen at the top of the panel says nothing, so it is removed rather than stilled. */
+  .scanline { display: none; }
+  /* Without the pulse, "done" and "now" would be the same colour; the current segment stays legible. */
+  .seg.now { opacity: 0.55; }
+  .frame i { opacity: 0.7; }
+  .frame::before, .frame::after { opacity: 0.5; }
+}

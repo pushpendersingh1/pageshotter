@@ -1,0 +1,266 @@
+/*
+ * The design-language token contract, shared by every extension surface.
+ *
+ * These values are the design language's, deliberately declared in one file rather
+ * than per page: a surface that forks a colour is the failure this file exists to prevent. Add a
+ * token here or use an existing one; never invent a sixth grey inside a component rule.
+ *
+ * Every extension surface is on this now -- popup, result, history, settings and welcome -- and the
+ * old `styles.css` it replaced has been deleted. The page frame shared by the three full-tab
+ * surfaces lives in `page-frame.css`, which is loaded after this file and before the page's own.
+ */
+
+/*
+ * The one bundled font: Handlee, the text tool's default. SIL OFL 1.1, notice
+ * in `fonts/Handlee-OFL.txt`. Packaged with the extension, never fetched. Declared here because the
+ * editor and the result page both draw text nodes; a page that never uses it never loads it.
+ */
+@font-face {
+  font-family: 'Handlee';
+  font-style: normal;
+  font-weight: 400;
+  src: url('fonts/Handlee-Regular.woff2') format('woff2');
+}
+
+:root {
+  /*
+   * Both schemes are declared because Chrome has a dark mode and an extension that ignores it looks
+   * broken. `color-scheme` is what makes native controls and scrollbars follow along; it narrows
+   * below when the user has picked a palette rather than following the system.
+   */
+  color-scheme: light dark;
+
+  /*
+   * The palette is derived from the logo: a red film frame between two perforated rails. #1A1A1A is
+   * the wordmark black exactly; #E11900 is the logo red deepened until white label text on it clears
+   * 4.5:1.
+   */
+  --stage: #efeeec;
+  --surface: #ffffff;
+  --surface-2: #f6f5f3;
+  --ink: #1a1a1a;
+  --ink-2: #6a6764;
+  --line: #e5e3df;
+  --accent: #e11900;
+  --accent-soft: #fff1ef;
+  /*
+   * Selection: the outline, hover and handles on the editor canvas, the selected row in a panel, and
+   * every focus ring. A neutral UI blue rather than the brand red, which read as a heavy theme mark
+   * on a red shape.
+   *
+   * **Deepened from the original #009EFF, which did not clear the 3:1 non-text floor.** Selection
+   * chrome is a 1px outline and a set of 8px handles, so the 3:1 non-text floor applies, and #009EFF measured
+   * 2.86:1 on `--surface` and **2.47:1 on `--stage`** -- which is the ground selection actually sits
+   * on. #1F6FEB measures 4.63:1 and 4.00:1. The dark value is a separate lift for hue family, not
+   * for contrast: #009EFF already cleared the floor there at 6.07:1, and #4C8DFF measures 5.43:1,
+   * still well past it. Keeping one recognisable blue across the two themes is worth those points;
+   * letting light mode fail the floor was not.
+   */
+  --select: #1f6feb;
+  /* The ground of a selected row -- a layer, or an item in the defaults nav. Large area, so it is a
+   * tint rather than the outline colour; `--ink` on it reaches 15.3:1. */
+  --select-soft: #eaf1fe;
+  /*
+   * Text and glyphs on a solid `--select` fill, e.g. the size tag beside a selection. Follows the
+   * fill for the same reason `--on-accent` does: white on the dark theme's lighter #4C8DFF reaches
+   * only 3.20:1, while near-black on it reaches 6.11:1.
+   */
+  --on-select: #ffffff;
+  /*
+   * A switch knob, which must stay visible against both the `--surface-2` well it rests in when off
+   * and the `--ink` track it rides when on. `--surface` was used for this and is very nearly
+   * invisible in the dark theme -- #1A1A1C on a #232326 track is 1.2:1 -- which no computed-style
+   * check would ever have reported, only looking at it.
+   */
+  --knob: #ffffff;
+  /*
+   * Label colour on a solid accent fill, which is not the same colour in both themes. White on
+   * #E11900 clears 4.5:1, but the dark theme lifts the accent to #FF4B3A -- necessary, since deep
+   * red on near-black reads as brown -- and white on that reaches only 3.3:1. Near-black on it
+   * reaches 5.2:1. So the fill's text follows the fill rather than being white by habit.
+   */
+  --on-accent: #ffffff;
+  /* Secondary text and a chip's wash on the same fill, so the whole group follows the theme. */
+  --on-accent-2: rgb(255 255 255 / 0.76);
+  --on-accent-wash: rgb(255 255 255 / 0.2);
+  --on-accent-line: rgb(255 255 255 / 0.55);
+  /*
+   * The logo's own red, used for the mark and for the primary button -- the two places the brand is
+   * being shown rather than a state being marked. It is deliberately *not* `--accent`: white text on
+   * #FF0000 reaches only 4.0:1, under the 4.5:1 floor, so anything carrying small text or a hairline
+   * keeps the deepened red.
+   */
+  --accent-hi: #ff0000;
+
+  /*
+   * The review ask's celebration palette. The star gold is not a state mark and exists nowhere
+   * else, so it is named for what it colours rather than forced into the accent; its empty and
+   * flash values lift separately in the dark theme.
+   */
+  --rv-star: #e9a400;
+  --rv-star-empty: #d9d7d1;
+  --rv-flash: #ffffff;
+
+  --shadow: 0 1px 2px rgb(26 26 26 / 0.06), 0 12px 32px rgb(26 26 26 / 0.13);
+  /* Heavier, and reserved for a captured image sitting on the stage — never for UI cards. */
+  --shot-shadow: 0 1px 2px rgb(26 26 26 / 0.08), 0 18px 44px rgb(26 26 26 / 0.16);
+  /* The scrim under a modal dialog, e.g. the editor's ? overlay. Deeper in the dark theme, where a
+   * translucent black over a near-black ground would otherwise read as a rendering fault. */
+  --scrim: rgb(12 12 13 / 0.38);
+  /* A swatch's hairline has to read against the *surface*, not against its own fill: `--line` is
+     invisible around an Ink swatch on a dark panel, which is under the 3:1 floor for non-text. */
+  --swatch-ring: rgb(26 26 26 / 0.28);
+  /*
+   * Lighter than `--shadow` and reserved for the editor's floating tool dock, which hovers over the
+   * stage rather than sitting on a surface. Not for cards: `--shadow` is theirs.
+   */
+  --float: 0 1px 2px rgb(26 26 26 / 0.06), 0 8px 24px rgb(26 26 26 / 0.08);
+
+  /*
+   * System stacks, never a webfont. A screenshot tool that phones out for a typeface undermines the
+   * whole privacy claim, and a fallback face flashing on every popup open would look broken.
+   */
+  --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --r: 10px;
+
+  color: var(--ink);
+  background: var(--surface);
+}
+
+/*
+ * Three states, not two. `data-theme` is absent by default, which is what "follow the system" means
+ * and is the state most people are in -- so the media query has to carry the dark palette on its own,
+ * excluding only an explicit light choice. The attribute rule then repeats the palette so a chosen
+ * dark also wins on a light OS. Every colour is defined on the bare `:root` above and only
+ * *redefined* here; a token whose sole definition sat inside one of these blocks would be missing in
+ * the other state.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --stage: #0c0c0d;
+    --surface: #1a1a1c;
+    --surface-2: #232326;
+    --ink: #edecea;
+    --ink-2: #9a9895;
+    --line: #2e2e31;
+    /* Lifted off the light-mode red, which goes muddy against a dark ground. */
+    --accent: #ff4b3a;
+    --accent-soft: #2a1513;
+    /* Lifted to keep one blue family with the light theme's deepened #1F6FEB; see the light block. */
+    --select: #4c8dff;
+    --select-soft: #15233b;
+    /* Near-black, because white on #4C8DFF reaches only 3.20:1. */
+    --on-select: #0c0c0d;
+    /* Not `--surface`, which is all but invisible on both the off well and the on track here. */
+    --knob: #9a9895;
+    --on-accent: #1a1a1a;
+    --on-accent-2: rgb(26 26 26 / 0.72);
+    --on-accent-wash: rgb(26 26 26 / 0.16);
+    --on-accent-line: rgb(26 26 26 / 0.5);
+    /* No separate brand red here: #FF0000 on a near-black ground is the muddy tone we just left. */
+    --accent-hi: #ff4b3a;
+    --rv-star-empty: #4a4945;
+    --rv-flash: #fff6da;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 16px 40px rgb(0 0 0 / 0.55);
+    --shot-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 20px 50px rgb(0 0 0 / 0.6);
+    --scrim: rgb(0 0 0 / 0.55);
+    --float: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px rgb(0 0 0 / 0.45);
+    --swatch-ring: rgb(255 255 255 / 0.34);
+  }
+}
+
+:root[data-theme="dark"] {
+  --stage: #0c0c0d;
+  --surface: #1a1a1c;
+  --surface-2: #232326;
+  --ink: #edecea;
+  --ink-2: #9a9895;
+  --line: #2e2e31;
+  /* Lifted off the light-mode red, which goes muddy against a dark ground. */
+  --accent: #ff4b3a;
+  --accent-soft: #2a1513;
+  /* The selection blue holds on a dark ground, so it is repeated, not lifted. */
+  --select: #4c8dff;
+  --select-soft: #15233b;
+  --on-select: #0c0c0d;
+  --knob: #9a9895;
+  --on-accent: #1a1a1a;
+  --on-accent-2: rgb(26 26 26 / 0.72);
+  --on-accent-wash: rgb(26 26 26 / 0.16);
+  --on-accent-line: rgb(26 26 26 / 0.5);
+  /* No separate brand red here: #FF0000 on a near-black ground is the muddy tone we just left. */
+  --accent-hi: #ff4b3a;
+  --rv-star-empty: #4a4945;
+  --rv-flash: #fff6da;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 16px 40px rgb(0 0 0 / 0.55);
+  --shot-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 20px 50px rgb(0 0 0 / 0.6);
+  --scrim: rgb(0 0 0 / 0.55);
+  --float: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px rgb(0 0 0 / 0.45);
+  --swatch-ring: rgb(255 255 255 / 0.34);
+}
+
+/* A chosen palette is not a preference the browser should second-guess for native controls. */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+/*
+ * The UA stylesheet implements `hidden` as `display: none`, which any author `display` beats. Author
+ * rules here set `display: grid` and `display: flex` on the very elements that toggle, so without
+ * this the capture buttons stay on screen beside the progress panel and offer a second capture while
+ * one is already running.
+ */
+[hidden] { display: none !important; }
+body { margin: 0; font-family: var(--ui); }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+/*
+ * Focus is blue, not red. Red marks the thing that is acting, and a red ring made a
+ * merely-focused control read as the live one -- most visibly in the editor, where the same red
+ * also fills the primary action. `--select` already means "this is the one you are on".
+ */
+:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+
+/*
+ * Icons are line drawings in the current colour, so a hovered or disabled control carries its glyph
+ * with it rather than leaving a differently-coloured mark behind. Weight is set once here so every
+ * glyph on a surface reads at the same density.
+ *
+ * Every glyph is a Tabler outline icon on a **24** viewBox, inlined at build time by
+ * `scripts/icons.mjs`. `stroke-width` is in viewBox units, so what a glyph actually draws is
+ * `stroke-width x renderedSize / 24` -- 2.0 at 15px is a 1.25px line.
+ *
+ * 2.0 is Tabler's own design weight, and that is the reason for it rather than a default taken
+ * unexamined: the terminals, joins and counters of these glyphs are drawn at 2.0, so running the set
+ * lighter than it was designed opens the counters and washes the strokes out. 1.6 was
+ * tried here and looked faint in the built extension, which is what 1.6 was -- a 1.0px line at 15px against the 1.5px the old 16-viewBox set drew. At 2.0 the set
+ * is still 17% lighter than what it replaced, which was the point of moving.
+ *
+ * The overrides elsewhere are stated as **rendered** weights, not as inherited numbers. That
+ * distinction is not pedantry: `.kbd` and `.empty` were on a 16 viewBox, so keeping their numbers
+ * kept their proportion, but `.tip-btn` and `.menu-link` had bespoke 14 and 10 viewBoxes, where the
+ * same number meant something else entirely -- carrying it over dropped the Guide arrow from a
+ * 1.30px line to 0.54px, which cannot land on a pixel and antialiases to grey. Each override below
+ * is now derived from the line the glyph used to draw, lightened by the same 0.83 the base was.
+ */
+.icon {
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/*
+ * Reduced motion collapses to the *final* state rather than the first: the viewfinder brackets and
+ * the progress segments carry meaning, so removing the animation must leave the meaning visible.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

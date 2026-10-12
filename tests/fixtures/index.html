@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PageShotter capture fixtures</title>
+    <style>
+      * { box-sizing: border-box; }
+      html { font: 16px/1.5 system-ui, sans-serif; color: #17211b; background: #f5f0e5; }
+      body { margin: 0; }
+      header { padding: 28px; background: #17211b; color: white; }
+      header h1 { margin: 0; }
+      nav { display: flex; flex-wrap: wrap; gap: 7px; padding: 14px 28px; background: #e8dfce; }
+      nav a { color: #71331f; }
+      main { max-width: 980px; margin: 0 auto; padding: 36px 28px; }
+      article section, .card { min-height: 360px; padding: 26px; margin: 0 0 18px; background: white; border: 1px solid #d6cfc1; }
+      article section:nth-child(3n+2) { background: #dce8de; }
+      article section:nth-child(3n) { background: #f2d7cb; }
+      .sticky-nav { position: sticky; top: 0; z-index: 5; padding: 13px 28px; background: #e6522c; color: white; }
+      .fixed-bottom { position: fixed; z-index: 8; left: 16px; right: 16px; bottom: 12px; padding: 14px; background: #17211b; color: white; }
+      .chat { position: fixed; z-index: 9; right: 20px; bottom: 20px; width: 54px; height: 54px; border-radius: 50%; background: #e6522c; color: white; display: grid; place-items: center; }
+      .layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; }
+      .sidebar { position: sticky; top: 16px; align-self: start; padding: 20px; background: #17211b; color: white; }
+      img { display: block; max-width: 100%; min-height: 220px; background: #d4d4cc; }
+      table { width: 100%; border-collapse: collapse; background: white; }
+      td, th { padding: 10px; border: 1px solid #c8c4ba; }
+      .animated { animation: pulse .6s infinite alternate; }
+      @keyframes pulse { to { transform: translateX(30px); opacity: .5; } }
+      .scroller { height: 440px; overflow: auto; border: 5px solid #e6522c; }
+      .app-shell { height: 100%; overflow: hidden; display: flex; flex-direction: column; }
+      .app-shell #fixture { flex: 1 1 auto; overflow-y: auto; max-width: none; margin: 0; }
+      iframe { width: 100%; height: 500px; border: 4px solid #17211b; }
+    </style>
+  </head>
+  <body>
+    <header><h1 id="fixture-title">PageShotter fixture</h1><p id="fixture-notes"></p></header>
+    <nav id="fixture-nav"></nav>
+    <main id="fixture"></main>
+    <script>
+      const cases = [
+        'normal-article','very-long-page','sticky-top-nav','fixed-bottom-banner','fixed-chat-button',
+        'sticky-sidebar','lazy-images','delayed-images','append-after-scroll','changing-height',
+        'css-animation','large-table','product-page','spa-layout','nested-scroll-container','spa-nested-scroller',
+        'multiple-fixed-elements','high-dpr','browser-zoom','short-page','small-final-segment',
+        'mutating-page','authenticated-demo','iframe','safety-limit','short-page-with-bottom-bar',
+        'scrollbar-forced','seam-ruler','editor-band-blur','tall-fixed-header','narrow-scroller','fixed-background',
+        'scroll-promoted-header','image-wait-ladder',
+        'over-limit-ruler','region-select','region-select-tall','element-select','pdf-layers',
+        'faded-scroller','virtualised-scroller','chrome-outside-scroller',
+        'scroll-reveal-text','offscreen-video','local-file-page','scroll-snapping','endless-feed',
+        'unfindable-scroller','degraded-capture','present-grid','smooth-scroll-hijack'
+      ]
+      const fixtureName = new URL(location.href).searchParams.get('case') || 'normal-article'
+      const fixture = document.querySelector('#fixture')
+      document.querySelector('#fixture-title').textContent = fixtureName.replaceAll('-', ' ')
+      document.querySelector('#fixture-notes').textContent = `Fixture ${cases.indexOf(fixtureName) + 1} of ${cases.length}`
+      document.querySelector('#fixture-nav').innerHTML = cases.map(name => `<a href="?case=${name}">${name}</a>`).join(' · ')
+
+      // `start` exists because these headings are how a stitching fault is read. A fixture that
+      // appends more sections mid-capture used to number them from 1 again, so a correct capture --
+      // one that did pick up the appended content -- looked like the stitcher had wrapped back to
+      // the top of the page. Numbering runs continuously instead, and a repeated number now means
+      // what it should: the same content photographed twice.
+      const sections = (count, start = 0) => Array.from({ length: count }, (_, index) => `<section><h2>Section ${start + index + 1}</h2><p>${'Stable capture content. '.repeat(24)}</p></section>`).join('')
+      fixture.innerHTML = `<article>${sections(fixtureName === 'very-long-page' ? 40 : 7)}</article>`
+
+      if (fixtureName === 'smooth-scroll-hijack') {
+        /*
+         * A page that answers a scroll request late, the way the Lenis/Locomotive/ScrollSmoother
+         * family do. Two mechanisms at once, because they fail differently:
+         *
+         *  1. `scroll-behavior: smooth` on the root, which the capture stylesheet must override.
+         *  2. A rAF loop that eases the offset toward *its own* target and writes it every frame,
+         *     which no stylesheet can touch. A single `scrollTo` is undone on the next frame.
+         *
+         * The top section is a scroll-reveal: it stays invisible until it has been on screen, so a
+         * capture that photographs the top before the page has actually arrived there gets a blank
+         * band -- which is exactly what showed on a real site, and what makes this fixture
+         * readable at a glance rather than requiring a pixel diff.
+         *
+         * REVEALTOP01..04 must all be legible in section 1 of the capture, and the sections must
+         * run 1, 2, 3 ... in order with nothing repeated.
+         */
+        document.documentElement.style.scrollBehavior = 'smooth'
+        fixture.innerHTML =
+          `<div class="reveal-hero">${[1,2,3,4].map(n => `<p class="reveal">REVEALTOP0${n} — this line is revealed only once the hero has been on screen.</p>`).join('')}</div>` +
+          sections(9)
+        const style = document.createElement('style')
+        style.textContent = `
+          .reveal { opacity: 0; transition: opacity .25s linear; }
+          .reveal.shown { opacity: 1; }
+          .reveal-hero { min-height: 70vh; display: flex; flex-direction: column; justify-content: center; }
+        `
+        document.head.append(style)
+        const observer = new IntersectionObserver((entries) => {
+          for (const entry of entries) if (entry.isIntersecting) entry.target.classList.add('shown')
+        })
+        for (const el of fixture.querySelectorAll('.reveal')) observer.observe(el)
+
+        // The hijacker. It owns a target of its own, moves it with the wheel, and writes the offset
+        // every frame -- so an external scrollTo is fought unless it is re-asserted every frame too.
+        let target = window.scrollY
+        let hijacking = true
+        addEventListener('wheel', (event) => {
+          event.preventDefault()
+          target = Math.max(0, Math.min(target + event.deltaY, document.documentElement.scrollHeight - innerHeight))
+        }, { passive: false })
+        const tick = () => {
+          if (hijacking) {
+            const current = window.scrollY
+            // Resynchronise with an external scroll only slowly, which is what makes a single
+            // scrollTo lose: for several frames the page keeps easing back to its own target.
+            target += (current - target) * 0.08
+            const next = current + (target - current) * 0.35
+            if (Math.abs(next - current) > 0.5) window.scrollTo(0, next)
+          }
+          requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+        // A way to prove the fixture itself works: the capture must not need it.
+        window.__stopHijack = () => { hijacking = false }
+      }
+      if (fixtureName === 'sticky-top-nav') fixture.insertAdjacentHTML('afterbegin', '<div class="sticky-nav">I should appear once</div>')
+      if (fixtureName === 'fixed-bottom-banner') document.body.insertAdjacentHTML('beforeend', '<div class="fixed-bottom">Fixed banner: capture me once</div>')
+      if (fixtureName === 'fixed-chat-button') document.body.insertAdjacentHTML('beforeend', '<div class="chat">Chat</div>')
+      if (fixtureName === 'sticky-sidebar') fixture.innerHTML = `<div class="layout"><aside class="sidebar">Sticky sidebar</aside><article>${sections(8)}</article></div>`
+      if (fixtureName === 'multiple-fixed-elements') document.body.insertAdjacentHTML('beforeend', '<div class="fixed-bottom">Fixed bottom</div><div class="chat">Chat</div>')
+      if (fixtureName === 'css-animation') fixture.insertAdjacentHTML('afterbegin', '<div class="card animated">Animated element</div>')
+      if (fixtureName === 'short-page') fixture.innerHTML = '<div class="card">This entire fixture is shorter than the viewport.</div>'
+      if (fixtureName === 'short-page-with-bottom-bar') {
+        // One segment: the bottom bar must survive, because nothing is being repeated.
+        fixture.innerHTML = '<div class="card">Shorter than the viewport, with fixed chrome.</div>'
+        document.body.insertAdjacentHTML('beforeend', '<div class="fixed-bottom">Fixed banner: keep me on a single-segment capture</div><div class="chat">Chat</div>')
+      }
+      if (fixtureName === 'small-final-segment') fixture.innerHTML = `<article>${sections(3)}<div style="height:37px;background:#e6522c">37px ending</div></article>`
+      if (fixtureName === 'large-table') fixture.innerHTML = `<table><thead><tr><th>Row</th><th>Value</th></tr></thead><tbody>${Array.from({length: 140}, (_, i) => `<tr><td>${i + 1}</td><td>Table content ${i + 1}</td></tr>`).join('')}</tbody></table>`
+      if (fixtureName === 'product-page') fixture.innerHTML = `<div class="layout"><div class="card">Product gallery</div><article><h1>Fixture product</h1>${sections(6)}</article></div>`
+      if (fixtureName === 'spa-layout') fixture.innerHTML = `<div id="app"><div class="sticky-nav">SPA toolbar</div>${sections(8)}</div>`
+      if (fixtureName === 'nested-scroll-container') fixture.innerHTML = `<div class="scroller">${sections(5)}</div>${sections(5, 5)}`
+      if (fixtureName === 'spa-nested-scroller') {
+        // App-shell layout: the document cannot scroll, so the capture engine must drive #fixture.
+        document.documentElement.style.height = '100%'
+        document.body.classList.add('app-shell')
+        fixture.innerHTML = `<div class="sticky-nav">Sticky inside the scroller: capture me once</div>${sections(12)}`
+        document.body.insertAdjacentHTML('beforeend', '<div class="chat">Chat</div>')
+        let appended = 0
+        fixture.addEventListener('scroll', () => {
+          if (appended >= 3 || fixture.scrollTop + fixture.clientHeight < fixture.scrollHeight - 100) return
+          fixture.insertAdjacentHTML('beforeend', sections(2, 12 + appended * 2))
+          appended += 1
+        })
+      }
+      if (fixtureName === 'faded-scroller') {
+        // Two ways an app shell fades the edge of its scroll area, side by side, because both look
+        // identical in the finished screenshot and only one of them is a mask.
+        //
+        // The scroller carries a `mask-image` that fades its own top and bottom. That is anchored to
+        // the capture rect, not to the content, so every segment comes out with washed-out first and
+        // last rows and the stitched image shows a pale band at every seam.
+        //
+        // The overlay below it is the other half: an absolutely positioned gradient over the bottom
+        // of the scroll area, which is *not* fixed and *not* sticky, so overlay discovery never sees
+        // it. If a band survives at the bottom edge of every segment after the mask fix, this is
+        // what is producing it.
+        //
+        // The ruler numbers make either one obvious: a number that is legible mid-segment and pale
+        // at a seam is an edge fade, not a stitching error.
+        document.documentElement.style.height = '100%'
+        document.body.classList.add('app-shell')
+        const rows = Array.from({length: 220}, (_, i) => `<div style="height:40px;border-top:1px solid #cfd8d3;font:13px/40px monospace;color:#17211b;padding:0 10px">Row ${i + 1} — this text must be equally sharp at every offset</div>`).join('')
+        fixture.innerHTML = rows
+        fixture.style.maskImage = 'linear-gradient(to bottom, transparent 0, #000 48px, #000 calc(100% - 96px), transparent 100%)'
+        fixture.style.webkitMaskImage = fixture.style.maskImage
+        document.body.insertAdjacentHTML('beforeend', '<div id="fade-overlay" style="position:absolute;left:0;right:0;bottom:0;height:110px;pointer-events:none;background:linear-gradient(to bottom, rgba(255,255,255,0), #fff)"></div>')
+        // The shape a real page had, reproduced: an opaque header backdrop masked to fade
+        // out over its bottom third, reaching past the header into the top of the scroll area. It is
+        // absolute rather than fixed, so it never moved when the page scrolled and washed the first
+        // rows of every segment toward white.
+        document.body.insertAdjacentHTML('beforeend', '<div id="header-backdrop" style="position:absolute;left:0;right:0;top:0;height:96px;pointer-events:none;background:#fcfcfb;-webkit-mask-image:linear-gradient(#000 66.67%,transparent);mask-image:linear-gradient(#000 66.67%,transparent)"></div>')
+        // And the page background it must NOT hide: full-bleed, absolutely positioned, overlapping
+        // everything. `classifyOverlay` returns `shell` for it. If a capture of this fixture comes
+        // back blank or transparent, that guard has broken and the fix is deleting real content.
+        document.body.insertAdjacentHTML('afterbegin', '<div id="page-ground" style="position:absolute;inset:0;z-index:-2;background:#f4f2ec;pointer-events:none"></div>')
+      }
+      if (fixtureName === 'virtualised-scroller') {
+        // A chat-style app that mounts a message when it comes near the viewport and *unmounts* it
+        // again once it has gone. A real PDF lost whole messages to exactly this: the picture
+        // has them, and a harvest that runs once -- at any single moment -- cannot.
+        //
+        // Every block keeps its height whether or not it is filled, so unmounting cannot reflow the
+        // page and the capture geometry stays honest. Each carries its own planted word, so the
+        // check is a search in a PDF reader rather than a judgement about how the text looks: a word
+        // that is in the picture and not findable is a message this fixture exists to catch.
+        document.documentElement.style.height = '100%'
+        document.body.classList.add('app-shell')
+        const total = 24
+        fixture.innerHTML = Array.from({length: total}, (_, i) => `<div class="vblock" data-index="${i}" style="height:260px;padding:16px;border-bottom:1px solid #cfd8d3"></div>`).join('')
+        const blocks = [...fixture.querySelectorAll('.vblock')]
+        // `offsetTop` is measured from the nearest positioned ancestor, which for a static #fixture
+        // is the body -- so it is the scroller's own offset larger than the scroller-relative
+        // coordinate `scrollTop` is in. Comparing the two directly mounted every block ~340px late,
+        // which left blocks 20, 22 and 24 empty while they were on screen and cost the capture
+        // their headings. The bug was in this fixture, not in the capture engine; it is subtracted
+        // once here so the near test is done in one coordinate space.
+        const base = blocks[0].offsetTop
+        const fill = () => {
+          const top = fixture.scrollTop
+          const bottom = top + fixture.clientHeight
+          for (const block of blocks) {
+            const index = Number(block.dataset.index)
+            const blockTop = block.offsetTop - base
+            const near = blockTop < bottom + 200 && blockTop + 260 > top - 200
+            if (near && block.childElementCount === 0) {
+              block.innerHTML = `<h2 style="margin:0 0 8px">Message ${index + 1}</h2><p style="margin:0">Planted word MURMEL${String(index + 1).padStart(2, '0')}. ${'This message is mounted only while it is near the viewport. '.repeat(3)}</p>`
+            } else if (!near && block.childElementCount > 0) {
+              block.replaceChildren()
+            }
+          }
+        }
+        fill()
+        fixture.addEventListener('scroll', fill)
+      }
+      if (fixtureName === 'chrome-outside-scroller') {
+        // Real text above and beside a nested scroller, none of which is ever photographed.
+        //
+        // The document does not scroll, so this chrome does not move: it sits outside the capture
+        // rect at every scroll position and is cropped out of every screenshot. It is also
+        // `position: static`, which is the point -- the `pinned` exclusion tests fixed, sticky and
+        // absolute, so static chrome walked straight past it and into the text layer. Worse, being
+        // outside the scroller it does not move with it either, so each harvest pass recorded it at
+        // a different image position and the dedup, which matches on position, kept every copy.
+        //
+        // The check is a search in the exported PDF and needs no judgement about the picture:
+        // OUTSIDE01-OUTSIDE06 are in the DOM and in no segment of the image, so not one of them may
+        // be findable. INSIDE01-INSIDE10 are in the scroller and must all be findable -- they are
+        // what stops this being passed by a fix that simply harvests less.
+        document.documentElement.style.height = '100%'
+        document.body.classList.add('app-shell')
+        document.body.insertAdjacentHTML('afterbegin',
+          '<div style="padding:14px 28px;background:#17211b;color:#fff;font:14px/1.5 system-ui">' +
+          'Masthead above the scroller: OUTSIDE01 OUTSIDE02 OUTSIDE03 — cropped out of every segment</div>')
+        fixture.insertAdjacentHTML('beforebegin',
+          '<div style="position:absolute;left:0;top:200px;width:180px;padding:12px;background:#e8efe9;' +
+          'color:#17211b;font:13px/1.5 system-ui">Rail beside the scroller: OUTSIDE04 OUTSIDE05 OUTSIDE06</div>')
+        fixture.style.marginLeft = '190px'
+        fixture.innerHTML = Array.from({length: 10}, (_, i) =>
+          `<section><h2>Inside ${i + 1}</h2><p>Planted word INSIDE${String(i + 1).padStart(2, '0')}. ` +
+          `${'This paragraph is inside the scroller and is photographed. '.repeat(6)}</p></section>`).join('')
+      }
+      if (fixtureName === 'authenticated-demo') fixture.insertAdjacentHTML('afterbegin', '<div class="card"><strong>Signed-in dashboard fixture</strong><p>No real credentials or private data.</p></div>')
+      if (fixtureName === 'iframe') fixture.insertAdjacentHTML('afterbegin', '<iframe srcdoc="<h1>Same-origin frame</h1><p>Rendered iframe content</p>"></iframe>')
+      if (fixtureName === 'safety-limit') fixture.innerHTML = '<div style="height:100200px;background:repeating-linear-gradient(#fff 0 100px,#eee 100px 200px)">Safety ceiling fixture</div>'
+      if (fixtureName === 'scrollbar-forced') {
+        // `scrollbar-gutter: stable` reserves the gutter even once the scrollbar itself is hidden,
+        // so this exercises the crop fallback rather than the hide rule.
+        document.documentElement.style.scrollbarGutter = 'stable'
+        fixture.innerHTML = `<article>${sections(10)}</article>`
+      }
+      if (fixtureName === 'seam-ruler') {
+        // Every 50px is labelled with its own absolute offset over a continuous gradient, so a
+        // stitching error announces itself: a skipped or repeated number is a gap or an overlap,
+        // and banding in the gradient is per-segment rounding drift.
+        const rules = Array.from({length: 160}, (_, i) => `<div style="position:absolute;top:${i * 50}px;left:0;right:0;height:1px;background:#e6522c;font:11px/1 monospace;color:#111"><span style="background:#fff;padding:0 4px">${i * 50}</span></div>`).join('')
+        fixture.innerHTML = `<div style="position:relative;height:8000px;background:linear-gradient(#fff,#1c3f2f)">${rules}</div>`
+      }
+      if (fixtureName === 'editor-band-blur') {
+        /*
+         * The editor export owns rows in 8,192px bands. This page puts a labelled boundary at that
+         * exact capture-pixel row on any DPR, then runs alternating rules through it. Draw one blur
+         * across the marker: an overlap error becomes a sharp horizontal step at the red line.
+         */
+        const density = devicePixelRatio
+        const boundaryCssY = 8192 / density
+        const fixtureTop = fixture.getBoundingClientRect().top + scrollY
+        const boundaryInFixture = boundaryCssY - fixtureTop
+        const height = Math.ceil(boundaryInFixture + 900)
+        const firstRule = Math.floor((boundaryInFixture - 600) / 16) * 16
+        const rules = Array.from({length: 76}, (_, index) => {
+          const top = firstRule + index * 16
+          const outputY = Math.round((fixtureTop + top) * density)
+          const dark = index % 2 === 0
+          return `<div style="position:absolute;top:${top}px;left:0;right:0;height:16px;background:${dark ? '#17211b' : '#fff'};color:${dark ? '#fff' : '#17211b'};font:11px/16px ui-monospace,monospace;padding-left:12px">output row ${outputY.toLocaleString()}</div>`
+        }).join('')
+        fixture.innerHTML =
+          `<div style="position:relative;height:${height}px;overflow:hidden;background:#fff">` +
+          rules +
+          `<div style="position:absolute;top:${boundaryInFixture}px;left:0;right:0;height:3px;background:#e11900;z-index:2"><span style="position:absolute;left:50%;top:-14px;transform:translateX(-50%);padding:4px 8px;background:#e11900;color:#fff;font:700 12px/1 ui-monospace,monospace;white-space:nowrap">8,192px EXPORT BAND BOUNDARY</span></div>` +
+          '</div>'
+        document.querySelector('#fixture-notes').textContent +=
+          ` · DPR ${density} · draw one Blur at least 500 capture px tall across the red 8,192px line; preview and 100% PNG must carry one continuous blur with no sharp step`
+      }
+      if (fixtureName === 'present-grid') {
+        // The Present row's target: a known grid whose ruler labels survive the frame, so a
+        // misplaced or mis-sized frame announces itself. "TOP" marks the capture's own first row,
+        // so it must sit exactly `margin + chrome` below the composed image's top edge; every 100px
+        // offset must be present, in order, and reachable -- a skipped number inside the card means
+        // the frame cropped content, and the last number (top-100) proving the floor survived means
+        // it never shrank the picture.
+        const height = 8000
+        const rules = Array.from({length: height / 100}, (_, i) => {
+          const top = i * 100
+          return `<div style="position:absolute;top:${top}px;left:0;right:0;height:1px;background:#e6522c"><span style="background:#fff;color:#111;font:12px/1 monospace;padding:1px 5px;position:relative;z-index:1">${top.toLocaleString()}</span></div>`
+        }).join('')
+        fixture.innerHTML =
+          `<div style="position:relative;height:${height}px;background:linear-gradient(#fff,#1c3f2f)">` +
+          '<div style="position:absolute;top:0;left:0;right:0;height:48px;background:#a3132a;color:#fff;font:600 18px/48px system-ui;padding:0 12px">TOP &mdash; the present frame adds chrome above this; in the composed image this must sit at exactly margin + one chrome band down</div>' +
+          rules +
+          '</div>'
+        document.querySelector('#fixture-notes').textContent += ' · Present-row fixture: rulers run 0 to 7,900 with none skipped; TOP is the first row of the capture'
+      }
+      if (fixtureName === 'scroll-promoted-header') {
+        // The Google Search shape: the bar is static flow
+        // content at scroll 0 -- photographed once, correctly -- and only becomes fixed once the
+        // page has scrolled, so overlay discovery first sees it at segment two. The old rule drew
+        // a top overlay in the first segment it was seen, stamping a second bar right below the
+        // seam. The scroll listener is the deterministic stand-in for whatever the page's own
+        // JS does; a seam-crossing second bar is the defect. The bar un-pins at the top so the
+        // page always returns to exactly its fresh-load state.
+        const bar = document.createElement('div')
+        bar.id = 'promoted-header'
+        bar.textContent = 'SCROLL-PROMOTED HEADER — must appear once, at the top'
+        bar.style.cssText = 'position:relative;top:0;left:0;right:0;height:56px;z-index:9;background:#17211b;color:#fff;display:flex;align-items:center;padding:0 16px;font:700 15px ui-monospace, Menlo, monospace'
+        document.body.prepend(bar)
+        fixture.innerHTML = sections(20)
+        window.addEventListener('scroll', () => {
+          const pinned = document.getElementById('promoted-header')
+          if (!pinned) return
+          if (window.scrollY > 10) {
+            pinned.style.position = 'fixed'
+            pinned.textContent = 'SCROLL-PROMOTED HEADER — pinned; must NOT be drawn again below a seam'
+          } else {
+            pinned.style.position = 'relative'
+            pinned.textContent = 'SCROLL-PROMOTED HEADER — must appear once, at the top'
+          }
+        }, { passive: true })
+        document.querySelector('#fixture-notes').textContent += ' · Header is flow content at scroll 0, fixed after the first scroll and unpinned back at the top; a second bar under any seam is the defect'
+      }
+      if (fixtureName === 'tall-fixed-header') {
+        // Sized against the live viewport so it always lands past classifyOverlay's half-viewport
+        // cutoff. A header this tall is currently classified as floating chrome and suppressed for
+        // the whole capture, which would delete a legitimate header from the screenshot.
+        const headerHeight = Math.round(window.innerHeight * 0.55)
+        document.body.insertAdjacentHTML('beforeend', `<div style="position:fixed;top:0;left:0;right:0;height:${headerHeight}px;z-index:9;background:#17211b;color:#fff;padding:16px;font:14px/1.4 system-ui">Tall fixed header — ${headerHeight}px, 55% of this viewport. It belongs in the first segment only.</div>`)
+        fixture.style.paddingTop = `${headerHeight + 16}px`
+        document.querySelector('#fixture-notes').textContent += ' · Reload after resizing the window'
+      }
+      if (fixtureName === 'narrow-scroller') {
+        // Pinned document plus a scroller narrower than MIN_CONTAINER_VIEWPORT_RATIO (40% of the
+        // viewport). Detection should reject it, so this is expected to capture one viewport.
+        document.documentElement.style.height = '100%'
+        document.body.classList.add('app-shell')
+        const width = Math.round(window.innerWidth * 0.35)
+        fixture.innerHTML = `<div style="width:${width}px;height:100%;overflow-y:auto;border:5px solid #e6522c">${sections(12)}</div>`
+        document.querySelector('#fixture-notes').textContent += ` · Scroller is ${width}px, 35% of this viewport`
+      }
+      if (fixtureName === 'fixed-background') {
+        // A viewport-pinned gradient is self-announcing: pinned, it restarts from white at the top
+        // of every segment, so a correct-looking capture is banded with a hard colour jump at each
+        // seam. Unpinned, the same gradient sizes to the whole page and runs as one continuous ramp
+        // from white to dark, top to bottom. Offset labels say exactly where any restart happened.
+        document.body.style.backgroundImage = 'linear-gradient(#ffffff, #10233f)'
+        document.body.style.backgroundAttachment = 'fixed'
+        document.body.style.backgroundRepeat = 'no-repeat'
+        document.body.style.backgroundSize = 'cover'
+        const rules = Array.from({length: 120}, (_, i) => `<div style="position:absolute;top:${i * 50}px;left:0;right:0;height:1px;background:#e6522c"><span style="background:#fff;color:#111;font:11px/1 monospace;padding:0 4px">${i * 50}</span></div>`).join('')
+        fixture.innerHTML = `<div style="position:relative;height:6000px">${rules}</div>`
+        document.querySelector('#fixture-notes').textContent += ' · Expect ONE smooth white-to-dark ramp over the whole image; a reset back to white at any seam is the defect'
+      }
+      if (fixtureName === 'over-limit-ruler') {
+        // 60,000 CSS px — nearly twice the 32,767 px that capture used to stop at on a DPR 2 display,
+        // and just past the 60,576 px live ChatGPT thread that captured 54%. Labelled every 500px so
+        // truncation names its own offset instead of having to be measured: the last legible number
+        // IS the point capture stopped. The 32,767 marker is the old ceiling, so a capture that ends
+        // exactly there has not been tiled at all, and the 59,500 banner only exists if it was.
+        // `?h=` overrides the height so a measurement run can drive a capture to the section ceiling
+        // without inventing a second ruler fixture. The default is unchanged, so the acceptance row
+        // means exactly what it did before.
+        const height = Math.max(1000, Number(new URL(location.href).searchParams.get('h')) || 60000)
+        const oldCeiling = 32767
+        const rules = Array.from({length: height / 500}, (_, i) => {
+          const top = i * 500
+          return `<div style="position:absolute;top:${top}px;left:0;right:0;height:1px;background:#e6522c"><span style="background:#fff;color:#111;font:12px/1 monospace;padding:1px 5px">${top.toLocaleString()}</span></div>`
+        }).join('')
+        const ceilingMark = `<div style="position:absolute;top:${oldCeiling}px;left:0;right:0;height:3px;background:#a3132a"><span style="background:#a3132a;color:#fff;font:13px/1.4 system-ui;padding:4px 8px">32,767 — the old truncation point at DPR 2. Content below this line is what tiled capture adds.</span></div>`
+        const banner = `<div style="position:absolute;top:${height - 500}px;left:0;right:0;background:#17211b;color:#fff;font:16px/1.4 system-ui;padding:14px">${(height - 500).toLocaleString()} — the bottom of the page. If this is in your screenshot, tiled capture reached the whole thing.</div>`
+        fixture.innerHTML = `<div style="position:relative;height:${height}px;background:linear-gradient(#fff,#1c3f2f)">${rules}${ceilingMark}${banner}</div>`
+        document.querySelector('#fixture-notes').textContent += ` · ${height.toLocaleString()} CSS px · expect the final label to read ${(height - 500).toLocaleString()}, not 32,767 · PNG/JPEG/Copy are expected to be unavailable at this size — PDF and Crop are the exports`
+      }
+      if (fixtureName === 'region-select') {
+        // Self-announcing in the seam-ruler tradition: the defect region select can produce is a
+        // MISPLACED region — wrong scale (DPR ignored) or wrong origin — and eyeballing a cropped
+        // screenshot will not reveal a 40px shift. So the page is red everywhere except one green
+        // target: drag the target's edges, and a correct crop is entirely green. ANY red in the
+        // export is a misplacement, and which edge it appears on names the direction of the error.
+        // The corner rulers turn that into a number rather than an impression.
+        const ticks = ['top:0;left:0', 'top:0;right:0', 'bottom:0;left:0', 'bottom:0;right:0']
+          .map(pos => `<div style="position:absolute;${pos};width:24px;height:24px;border:3px solid #0b3d21"></div>`).join('')
+        fixture.innerHTML = `
+          <div style="position:fixed;inset:0;background:repeating-linear-gradient(45deg,#c62828,#c62828 14px,#8e1b1b 14px,#8e1b1b 28px);z-index:1">
+            <div id="region-target" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:420px;height:260px;background:#0f9d58;border:4px solid #0b3d21;box-sizing:border-box;display:flex;align-items:center;justify-content:center;text-align:center;font:600 15px/1.5 system-ui;color:#fff;padding:18px">
+              ${ticks}
+              <div>Drag from one corner of this green box to the opposite corner.<br><br>A correct region export is <strong>entirely green</strong>.<br>Any red stripe means the region was misplaced &mdash; the side it appears on is the direction of the error.<br><br>All four corner squares must be present and whole.</div>
+            </div>
+          </div>`
+        document.querySelector('#fixture-notes').textContent += ' · Target is 420 × 260 CSS px · at DPR 2 a correct export reads 840 × 520 px · any red = misplaced region'
+      }
+      if (fixtureName === 'region-select-tall') {
+        // The band path's failure mode is different from the single-shot path's, so it needs its own
+        // self-announcing page. A band is stitched from several screenshots, so it can be misplaced
+        // (like a region) but it can ALSO skip or repeat a slice at a seam -- and a repeat is
+        // invisible on a plain colour. The target is therefore green with a numbered ruler running
+        // down it: a correct export is entirely green AND counts 0, 100, 200 ... with nothing
+        // skipped and nothing repeated. Red anywhere is a misplacement; a broken count is a seam.
+        const targetHeight = 2600
+        const marks = []
+        for (let y = 0; y < targetHeight; y += 100) {
+          marks.push(`<div style="position:absolute;top:${y}px;left:0;right:0;height:1px;background:rgba(255,255,255,.75)"><span style="position:absolute;left:8px;top:2px;font:600 13px/1 ui-monospace,monospace;color:#fff">${y}</span></div>`)
+        }
+        fixture.innerHTML = `
+          <div style="position:relative;height:${targetHeight + 1600}px;background:repeating-linear-gradient(45deg,#c62828,#c62828 14px,#8e1b1b 14px,#8e1b1b 28px)">
+            <div id="region-target-tall" style="position:absolute;left:50%;top:800px;transform:translateX(-50%);width:520px;height:${targetHeight}px;background:#0f9d58;border:4px solid #0b3d21;box-sizing:border-box;color:#fff;font:600 15px/1.5 system-ui;padding:18px">
+              ${marks.join('')}
+              <div style="position:relative;padding-left:52px">Start the drag at this box&rsquo;s top-left corner, then drag past the bottom of the window &mdash; the page should scroll under the selection &mdash; and release at the opposite corner.<br><br>A correct export is <strong>entirely green</strong>, and its ruler counts <strong>0, 100, 200 &hellip; ${targetHeight - 100}</strong> with none skipped and none repeated.<br><br>Red = the band is misplaced. A skipped or repeated number = a bad seam between screenshots.</div>
+            </div>
+          </div>`
+        document.querySelector('#fixture-notes').textContent += ` · Target is 520 × ${targetHeight} CSS px, taller than any viewport · expect ${targetHeight / 100} ruler labels, 0 to ${targetHeight - 100}`
+      }
+      if (fixtureName === 'element-select') {
+        // Element pick has its own failure mode: it can outline the RIGHT box and capture the wrong
+        // one, or silently hand back a wrapper wider than the thing under the pointer. Neither is
+        // visible in a crop of ordinary content, so every target here states its own identity and
+        // its own size. A correct export contains exactly one target's banner and all four of its
+        // corner ticks -- so the screenshot names the element that was picked, and a missing tick
+        // names the edge that was lost.
+        const ticks = ['top:0;left:0', 'top:0;right:0', 'bottom:0;left:0', 'bottom:0;right:0']
+          .map(pos => `<div style="position:absolute;${pos};width:22px;height:22px;border:3px solid #0b3d21"></div>`).join('')
+        const target = (id, label, w, h, body, bg) => `
+          <div id="${id}" style="position:relative;width:${w}px;height:${h}px;overflow:hidden;box-sizing:border-box;background:${bg};border:4px solid #0b3d21;margin:0 auto 40px;padding:18px;color:#fff;font:600 15px/1.5 system-ui">
+            ${ticks}
+            <div style="padding:0 30px"><strong>${label} &mdash; ${w} &times; ${h} CSS px</strong><br>${body}</div>
+          </div>`
+        // The wrapper chain: a span exactly filling a div exactly filling the card. Hovering the
+        // text must still outline the CARD, because all three are drawn in the same place.
+        const chain = '<div style="display:block"><span style="display:block">Hover this sentence. It sits inside a span inside a div, all three exactly the same size as the card, so the outline must be the CARD &mdash; if your export is only this sentence, the wrapper collapse is broken.</span></div>'
+        fixture.innerHTML = `
+          <div style="padding:40px 0;background:repeating-linear-gradient(45deg,#c62828,#c62828 14px,#8e1b1b 14px,#8e1b1b 28px)">
+            ${target('el-card', 'CARD', 520, 220, chain, '#0f9d58')}
+            ${target('el-nested-outer', 'OUTER', 700, 360, `Hover the padding of this box &mdash; not the inner box &mdash; and the outline must be OUTER.
+              <div id="el-nested-inner" style="position:relative;margin-top:16px;background:#1b5e20;border:3px dashed #cfe;padding:14px">INNER &mdash; 
+              hover HERE and the outline must be INNER alone. An export showing OUTER&rsquo;s banner means the pick walked too far up.</div>`, '#00796b')}
+            ${target('el-tall', 'TALL', 520, 2400, 'This element is taller than any viewport, so picking it must hand off to the band path: the export scrolls the page and stitches it. A correct export is entirely teal with this banner at the top and all four ticks present.', '#00695c')}
+          </div>`
+        document.querySelector('#fixture-notes').textContent += ' · Hold Ctrl and hover: the dashed outline must match the named box · click captures it · any red = misplaced pick'
+      }
+      if (fixtureName === 'pdf-layers') {
+        // The PDF layers are INVISIBLE in the picture, so nothing about them can be judged by
+        // looking at the screenshot -- this page is built to be judged in a PDF reader instead.
+        // Every claim it makes is falsifiable there: each link states the address it must open, and
+        // each search word is a nonsense string that cannot occur by accident, so finding it proves
+        // the text layer reached that depth and failing to find it names the depth that was missed.
+        const words = ['ZARQUON', 'PLIMFERD', 'GRAWLIX', 'BLENKARP', 'VOSTIGAN', 'THRENODYX']
+        const blocks = words.map((word, i) => `
+          <section style="min-height:${i === 0 ? 220 : 620}px;padding:18px;border-top:2px solid #17211b">
+            <h2 style="margin:0 0 8px">Block ${i + 1} &mdash; search word <code>${word}</code></h2>
+            <p style="margin:0 0 10px">Search the PDF for <strong>${word}</strong>. It must be found. Highlighting it
+            should land on these words rather than elsewhere on the page.</p>
+            <p style="margin:0"><a href="https://example.com/block-${i + 1}">Link ${i + 1} &mdash; must open https://example.com/block-${i + 1}</a></p>
+          </section>`).join('')
+        fixture.innerHTML = `
+          <article>
+            <div style="background:#17211b;color:#fff;padding:16px 18px">
+              <h1 style="margin:0 0 10px;font-size:19px">PDF layer test sheet</h1>
+              <p style="margin:0 0 8px">Export this page with <strong>Save to PDF</strong> and open the file in a PDF reader
+              (Preview, Acrobat, or Chrome's own viewer). Then check each option in turn:</p>
+              <ol style="margin:0;padding-left:20px;line-height:1.7">
+                <li><strong>Direct links</strong> on &rarr; every <code>Link N</code> below opens the address it names, and the
+                <em>straddle link</em> at the bottom works on <strong>both</strong> pages it crosses.</li>
+                <li><strong>Text-searchable</strong> on &rarr; all ${words.length} search words are findable, and text can be selected.</li>
+                <li><strong>Disable text selection</strong> on &rarr; nothing is findable and nothing selects. It is the same
+                setting as the one above, in its off state.</li>
+                <li>Both off &rarr; the file has no annotations and no text at all.</li>
+              </ol>
+              <p style="margin:10px 0 0"><strong>Block 1 is inside the first screenful</strong>, so
+              <em>Capture visible area</em> and <em>Capture selection</em> can be tested with it too &mdash; those must also
+              produce working links and searchable text, clipped to what was captured.</p>
+            </div>
+            <p style="position:fixed;bottom:0;left:0;right:0;background:#a3132a;color:#fff;padding:10px;margin:0;z-index:5">
+              FIXED BAR &mdash; <a href="https://example.com/fixed" style="color:#fff">this link must NOT be in the PDF</a>.
+              A pinned element is moved or suppressed by overlay policy, so where it was measured is not where it lands.
+              Its absence is a <strong>pass</strong>.
+            </p>
+            ${blocks}
+            <section style="min-height:900px;padding:18px;border-top:2px solid #17211b">
+              <h2 style="margin:0 0 10px">Straddle test</h2>
+              <p style="margin:0 0 10px">A link that crosses a page break must be clickable on both sides of it, not
+              neither. This one is tall enough to cross one wherever the break falls.</p>
+              <a href="https://example.com/straddle" style="display:block;font-size:30px;line-height:1.6;padding:8px 0">
+                STRADDLE LINK &mdash; must open https://example.com/straddle &mdash; check it on the page above the break
+                AND on the page below it, because a link clipped to only one page is the failure this exists to catch.
+              </a>
+            </section>
+            <section style="padding:18px;border-top:2px solid #17211b">
+              <h2 style="margin:0 0 8px">Words that must be found, and words that must not</h2>
+              <p style="margin:0 0 10px">Each box below is a way text can be present in the DOM but absent from the
+              picture, or present in the picture but hard to reach. Search the PDF for every capitalised nonsense word:
+              the ones marked FIND must be found, the ones marked ABSENT must not be. A word in the wrong list names
+              exactly which rule broke.</p>
+
+              <div style="border:2px solid #17211b;padding:12px;margin:0 0 12px">
+                <h3 style="margin:0 0 6px">FIND &mdash; selection must land on the words</h3>
+                <p style="margin:0 0 8px;font-size:22px;font-family:Georgia,serif">Addresses that must be skipped</p>
+                <p style="margin:0">Drag across that line in the PDF. The selection must contain
+                <strong>every letter including the final &ldquo;d&rdquo;</strong>. A selection that stops one character
+                short is the line-level text layer this replaced &mdash; runs are per word now, so each box is measured
+                rather than apportioned across a line.</p>
+                <p style="margin:8px 0 0">Double-clicking <strong>PLIMFERD</strong> above should select that word alone.</p>
+              </div>
+
+              <div style="border:2px solid #17211b;padding:12px;margin:0 0 12px">
+                <h3 style="margin:0 0 6px">Clipped panel</h3>
+                <p style="margin:0 0 8px">The panel below shows one line and hides the rest. Only what is visible is in
+                the screenshot, so only what is visible may be in the text layer.</p>
+                <div style="height:34px;overflow:hidden;border:1px dashed #a3132a;padding:4px 8px;line-height:26px">
+                  <div>FIND: HOLBRANT is visible in this panel.</div>
+                  <div>ABSENT: MUNTAZEL is scrolled out of it.</div>
+                  <div>ABSENT: KREDVILE is further out still.</div>
+                </div>
+                <p style="margin:8px 0 0">Finding MUNTAZEL means the text layer ignored the clip and put selectable
+                words on top of whatever the image shows there instead.</p>
+              </div>
+
+              <div style="border:2px solid #17211b;padding:12px;margin:0 0 12px">
+                <h3 style="margin:0 0 6px">Hidden from the screen, not from the DOM</h3>
+                <p style="margin:0">
+                  ABSENT:
+                  <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">FLENTORB</span>
+                  <span style="position:absolute;clip-path:inset(50%)">QUIBSHAW</span>
+                  <span style="visibility:hidden">SNORVATE</span>
+                  <span style="opacity:0">GLIMWORTH</span>
+                  four words sit here that the page never draws &mdash; the screen-reader-only idiom in both spellings,
+                  plus hidden and transparent text. None may be findable in a picture that never showed them.
+                </p>
+              </div>
+
+              <div style="border:2px solid #17211b;padding:12px">
+                <h3 style="margin:0 0 6px">Inside a web component</h3>
+                <p style="margin:0 0 8px">A shadow root is a normal part of the page to a reader and invisible to a
+                plain tree walk.</p>
+                <fixture-shadow-text></fixture-shadow-text>
+                <p style="margin:8px 0 0">DRAVOCK must be findable and its link must work. Their absence means the
+                walk stopped at the shadow boundary.</p>
+              </div>
+            </section>
+            <section style="padding:18px;border-top:2px solid #17211b">
+              <h2 style="margin:0 0 8px">Addresses that must be skipped</h2>
+              <p style="margin:0 0 6px"><a href="javascript:void 0">A javascript: link &mdash; must NOT appear</a>, because it
+              does nothing in a PDF reader.</p>
+              <p style="margin:0"><a href="mailto:nobody@example.com">A mailto: link &mdash; must NOT appear</a>. Only http
+              and https addresses are written.</p>
+            </section>
+          </article>`
+        customElements.define('fixture-shadow-text', class extends HTMLElement {
+          connectedCallback() {
+            this.attachShadow({mode: 'open'}).innerHTML =
+              '<p style="margin:0;padding:8px;background:#eef3ef">FIND: DRAVOCK lives in an open shadow root. ' +
+              '<a href="https://example.com/shadow">Shadow link &mdash; must open https://example.com/shadow</a></p>'
+          }
+        })
+        document.querySelector('#fixture-notes').textContent += ` · Judge this in a PDF reader, not in the preview · ${words.length} search words + HOLBRANT + DRAVOCK must be found · MUNTAZEL, KREDVILE, FLENTORB, QUIBSHAW, SNORVATE, GLIMWORTH must NOT be · ${words.length + 2} links that must work, 3 that must be absent`
+      }
+      if (fixtureName === 'high-dpr') document.querySelector('#fixture-notes').textContent += ' · Run Chrome with DPR 2 device emulation'
+      if (fixtureName === 'browser-zoom') document.querySelector('#fixture-notes').textContent += ' · Test at 80%, 125%, and 200% zoom'
+      if (fixtureName === 'lazy-images' || fixtureName === 'delayed-images') {
+        fixture.innerHTML = Array.from({length: 12}, (_, i) => `<section><h2>Lazy image ${i + 1}</h2><img data-index="${i}" alt="Generated lazy fixture"></section>`).join('')
+        const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+          if (!entry.isIntersecting) return
+          const image = entry.target
+          const delay = fixtureName === 'delayed-images' ? 500 : 50
+          setTimeout(() => image.src = `https://picsum.photos/seed/pageshotter-${image.dataset.index}/900/320`, delay)
+          observer.unobserve(image)
+        }))
+        document.querySelectorAll('img').forEach(image => observer.observe(image))
+      }
+      if (fixtureName === 'image-wait-ladder') {
+        // Reads the "Wait for images" setting straight off the screenshot.
+        //
+        // Every slot is already at its final size, so the page's height never changes and the
+        // height-based settle correctly concludes it is finished -- which is the whole point: the
+        // only thing that fills these slots is the image wait, so whatever the screenshot shows IS
+        // the setting's behaviour. A slot that did not load photographs as a red NOT LOADED block
+        // carrying its own delay, so a skipped one is legible without comparing anything.
+        //
+        // No network: the picture is drawn here and handed over as a blob URL, so the delay is the
+        // timeout and nothing else. Unlike `lazy-images`, this fixture works offline and is the
+        // same every run.
+        const delays = [0, 200, 600, 1200, 2500, 6000]
+        function draw(label) {
+          const canvas = document.createElement('canvas')
+          canvas.width = 900
+          canvas.height = 200
+          const pen = canvas.getContext('2d')
+          pen.fillStyle = '#0f7b4a'
+          pen.fillRect(0, 0, 900, 200)
+          pen.fillStyle = '#fff'
+          pen.font = '700 44px ui-monospace, Menlo, monospace'
+          pen.fillText('LOADED ' + label, 28, 118)
+          return new Promise(resolve => canvas.toBlob(blob => resolve(URL.createObjectURL(blob))))
+        }
+        fixture.innerHTML = delays.map((ms, i) => {
+          const label = (i + 1) + ' of ' + delays.length + ' at ' + ms + 'ms'
+          return '<section><h2>Image ' + label + '</h2>' +
+            '<div style="position:relative;width:900px;height:200px;max-width:100%">' +
+            '<div style="position:absolute;inset:0;background:#a3132a;color:#fff;font:700 40px/200px ui-monospace, Menlo, monospace;padding-left:28px">NOT LOADED ' + label + '</div>' +
+            '<img data-delay="' + ms + '" width="900" height="200" alt="" style="position:relative;display:block;width:900px;max-width:100%;height:200px;visibility:hidden">' +
+            '</div></section>' +
+            sections(2)
+        }).join('')
+        // Every picture is drawn and turned into a blob URL *before* any timer starts. Doing it
+        // inside the timer added the encode to each delay, so a slot labelled 200ms actually
+        // arrived past 1.4s and the ladder did not mean what it said. Now the timeout is the only
+        // variable, and assigning an already-made blob URL loads in the next frame.
+        Promise.all(Array.from(document.querySelectorAll('#fixture img'), image =>
+          draw(image.dataset.delay + 'ms').then(url => ({ image, url }))
+        )).then(ready => ready.forEach(({ image, url }) => {
+          // The NOT LOADED block is removed by the load event rather than simply being covered by
+          // the picture. An `<img>` that has no image to show can paint Chrome's own grey
+          // placeholder over whatever is behind it, which turned a slot that should have announced
+          // itself into an anonymous grey box. Hidden until it has something to draw, it cannot.
+          image.addEventListener('load', () => {
+            image.style.visibility = 'visible'
+            image.previousElementSibling.remove()
+          }, { once: true })
+          setTimeout(() => { image.src = url }, Number(image.dataset.delay))
+        }))
+        document.querySelector('#fixture-notes').textContent +=
+          ' · Image-wait fixture: with the setting Off every slot must read NOT LOADED; on Full every slot must read LOADED. The grace period is 650ms, so the 0 and 200ms slots load even at the shortest setting.'
+      }
+      if (fixtureName === 'append-after-scroll' || fixtureName === 'changing-height') {
+        let additions = 0
+        addEventListener('scroll', () => {
+          if (additions >= 3 || scrollY + innerHeight < document.documentElement.scrollHeight - 100) return
+          fixture.insertAdjacentHTML('beforeend', sections(2))
+          additions += 1
+        })
+      }
+      if (fixtureName === 'scroll-reveal-text') {
+        // The most common way a modern page photographs wrongly. Sections start at `opacity: 0` and
+        // are lifted by an IntersectionObserver -- but a capture moves the scroller itself, and on
+        // many pages that observer never fires, so every section comes out a blank white card.
+        //
+        // The controls beneath the reveals are the other half of the test. Each one is invisible or
+        // faint for a reason the page means, and a rescue that revives any of them has shown the
+        // user something they never saw -- a worse defect than the band it was fixing.
+        const reveals = Array.from({length: 14}, (_, i) => {
+          const n = String(i + 1).padStart(2, '0')
+          return `<section class="reveal"><h2>REVEAL ${n}</h2><p>This paragraph belongs to REVEAL ${n}. ` +
+            'It starts fully transparent and is only made visible when the observer reports it on screen. ' +
+            'An empty card here means the capture photographed the animation&rsquo;s base state instead of the page.</p></section>'
+        }).join('')
+        fixture.innerHTML =
+          '<section class="card"><h2>CONTROL A — covered slide (absolute)</h2>' +
+          '<div style="position:relative;height:130px">' +
+          '<div style="position:absolute;inset:0;opacity:0;padding:14px;background:#fff;border:1px dashed #b9b1a0">HIDDEN SLIDE — must NOT appear. Transparent underneath the visible slide, which is what a carousel and a tab panel both look like.</div>' +
+          '<div style="position:absolute;inset:0;padding:14px;background:#fff;border:1px solid #b9b1a0">VISIBLE SLIDE — must appear alone, with nothing showing through it.</div>' +
+          '</div></section>' +
+          '<section class="card"><h2>CONTROL B — covered by an absolute sibling</h2>' +
+          '<div style="position:relative;height:130px">' +
+          '<div style="position:relative;opacity:0;height:130px;padding:14px;background:#fff;border:1px dashed #b9b1a0">COVERED PANEL — must NOT appear. This one is in flow, so only the covered-by-a-sibling geometry holds it back.</div>' +
+          '<div style="position:absolute;inset:0;padding:14px;background:#fff;border:1px solid #b9b1a0">COVERING PANEL — must appear alone.</div>' +
+          '</div></section>' +
+          '<section class="card"><h2>CONTROL C — hidden by other means</h2>' +
+          '<p><span style="opacity:0;display:inline-block;width:40px;height:40px;font-size:9px">TINYHIDDEN</span> TINYHIDDEN is transparent and below the minimum area — must NOT appear.</p>' +
+          '<p style="opacity:0;visibility:hidden">VISIBILITYHIDDEN — must NOT appear.</p>' +
+          '<p style="opacity:0;display:none">DISPLAYNONE — must NOT appear.</p>' +
+          '<p style="opacity:0.35">FAINT35 — must appear at its own faintness, NOT at full strength.</p>' +
+          '</section>' +
+          `<p class="card">Revealed by the observer so far: <b id="reveal-count">0</b>/14</p>${reveals}`
+        const revealStyle = document.createElement('style')
+        revealStyle.textContent =
+          '.reveal{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}' +
+          '.reveal.seen{opacity:1;transform:none}'
+        document.head.append(revealStyle)
+        let seen = 0
+        const counter = document.querySelector('#reveal-count')
+        const revealObserver = new IntersectionObserver(entries => {
+          entries.forEach(entry => {
+            if (!entry.isIntersecting || entry.target.classList.contains('seen')) return
+            entry.target.classList.add('seen')
+            seen += 1
+            counter.textContent = String(seen)
+          })
+        })
+        document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el))
+      }
+      if (fixtureName === 'offscreen-video') {
+        // `clip.mp4` counts FRAME 0 to FRAME 29 over three seconds, so the number photographed says
+        // exactly what happened: 0 or 1 means a frame was forced near the start, which is what the
+        // page itself would have shown; a high number means the capture seeked to the end and
+        // photographed something no visitor sees first; a black box means nothing was forced.
+        //
+        // `preload="none"` is not incidental. It is what a page puts on a video below the fold, and
+        // it is why such an element reports no duration at all until metadata is fetched.
+        const clip = (id, extra) => `<section class="card"><h2>${id.label}</h2><p>${id.note}</p>` +
+          `<video id="${id.id}" src="clip.mp4" preload="none" muted playsinline ${extra} ` +
+          'style="width:320px;height:180px;background:#000;display:block"></video></section>'
+        const poster = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Crect width='320' height='180' fill='%23555'/%3E%3Ctext x='160' y='96' font-family='sans-serif' font-size='30' fill='white' text-anchor='middle'%3EPOSTER%3C/text%3E%3C/svg%3E"
+        fixture.innerHTML =
+          clip({id: 'v-onscreen', label: 'ON SCREEN — must not be touched', note: 'Inside the first viewport. Whatever it shows when you press capture is what the screenshot must show; a black box here is correct.'}, '') +
+          '<div class="card" style="height:1400px;display:grid;place-items:center;color:#6b665c">SPACER — everything below here is off screen at capture time</div>' +
+          clip({id: 'v-below', label: 'BELOW FOLD, NO POSTER — the case under test', note: 'Expected: a green frame reading FRAME 0 or FRAME 1.'}, '') +
+          clip({id: 'v-postered', label: 'BELOW FOLD, WITH POSTER — must show its poster', note: 'Expected: the grey POSTER image. The page chose this picture; replacing it would be a worse screenshot.'}, `poster="${poster}"`) +
+          clip({id: 'v-looping', label: 'BELOW FOLD, LOOPING — must be left alone', note: 'Expected: a black box. A loop is background decoration and the capture does not disturb it.'}, 'loop') +
+          '<section class="card"><h2>STEP 0 — DOES THIS CHROME DECODE THE CLIP?</h2><p>Press this <b>before capturing</b>. Two development Chromes refused this clip outright, and on such a machine every clip below photographs black whatever the capture does. This uses a separate element and does not touch the four clips under test.</p>' +
+          '<p><button id="check-decode" type="button">Check clip decodes</button> <b id="decode-result">not checked</b></p></section>' +
+          '<section class="card"><h2>PLAYHEAD RESTORED</h2><p>After the capture finishes every clip must read 0.00. A capture that leaves a video seeked has changed the page it photographed.</p>' +
+          '<p><button id="check-playheads" type="button">Check playheads</button> <b id="playheads">not checked</b></p></section>'
+        /*
+         * Step 0 of the manual check, and it exists because two development Chromes in a row
+         * would not decode this clip at all -- no HTTP request, `loadstart` then `stalled`, metadata
+         * never arriving. On such a machine every clip photographs black whatever the capture does,
+         * and the row reads as a product failure when it is an environment failure.
+         *
+         * So the fixture says which it is before anything is captured. It uses its own element and
+         * never touches the four under test, because a clip that has been loaded by the check is no
+         * longer the below-fold, nothing-loaded case the row is about.
+         */
+        document.querySelector('#check-decode').addEventListener('click', async () => {
+          const out = document.querySelector('#decode-result')
+          out.textContent = 'checking...'
+          const probe = document.createElement('video')
+          probe.muted = true; probe.playsInline = true; probe.preload = 'metadata'
+          const started = performance.now()
+          const verdict = await new Promise(resolve => {
+            probe.addEventListener('loadedmetadata', () => resolve('DECODES'), { once: true })
+            probe.addEventListener('error', () => resolve('FAILED (error code ' + (probe.error && probe.error.code) + ')'), { once: true })
+            setTimeout(() => resolve('FAILED (no metadata in 5s)'), 5000)
+            probe.src = 'clip.mp4'
+          })
+          const ms = Math.round(performance.now() - started)
+          out.textContent = verdict === 'DECODES'
+            ? `DECODES in ${ms}ms (${probe.videoWidth}x${probe.videoHeight}, ${probe.duration}s) — the row is meaningful, go ahead`
+            : `${verdict} — this Chrome will not play the fixture clip, so every clip below will photograph black no matter what the capture does. That is not a PageShotter defect. Do not record this row.`
+          probe.removeAttribute('src')
+          probe.load()
+        })
+        document.querySelector('#check-playheads').addEventListener('click', () => {
+          document.querySelector('#playheads').textContent = Array.from(document.querySelectorAll('video'))
+            .map(v => `${v.id}=${v.currentTime.toFixed(2)}`).join('  ')
+        })
+      }
+      if (fixtureName === 'endless-feed') {
+        // A feed, and the point is that it genuinely never ends: more arrives every time the bottom
+        // is approached, so the document is longer after each section than before it and there is no
+        // final position to reach. Capture must stop itself and say so.
+        //
+        // `append-after-scroll` is the other half of this test and already exists: it grows the same
+        // way but stops after three additions, so it must NOT be called endless. The two together
+        // are what the five-section run has to tell apart.
+        //
+        // Growth hangs off an IntersectionObserver on a sentinel rather than a scroll listener. That
+        // is how real feeds are built, and it is also the only version that works here: programmatic
+        // scrolling does not reliably deliver scroll events, so a scroll-driven fixture sat at a
+        // constant height and quietly tested nothing.
+        let posted = 0
+        const sentinel = document.createElement('div')
+        sentinel.id = 'feed-sentinel'
+        sentinel.style.cssText = 'height:1px'
+        const post = (count) => {
+          const html = Array.from({length: count}, () => {
+            posted += 1
+            return `<section class="card" style="min-height:420px"><h2>POST ${String(posted).padStart(3, '0')}</h2>` +
+              `<p>Item ${posted} of an unbounded feed. More arrive whenever the end comes into view, so the ` +
+              'document is always longer than it was a moment ago and the end can never be reached.</p></section>'
+          }).join('')
+          sentinel.insertAdjacentHTML('beforebegin', html)
+        }
+        fixture.insertAdjacentHTML('afterbegin',
+          '<section class="card"><h2>STEP 0 — DOES THIS FEED ACTUALLY GROW?</h2>' +
+          '<p>Press this <b>before capturing</b>. This fixture only tests anything if the page gets ' +
+          'longer as it is scrolled, and a browser that is not advancing its rendering will leave it ' +
+          'at a constant height — testing nothing, silently. A development Chrome did exactly that.</p>' +
+          '<p><button id="check-growth" type="button">Check the feed grows</button> <b id="growth-result">not checked</b></p></section>')
+        fixture.append(sentinel)
+        post(4)
+        new IntersectionObserver((entries) => {
+          if (entries.some(e => e.isIntersecting)) post(3)
+        }, {rootMargin: '600px'}).observe(sentinel)
+        document.querySelector('#check-growth').addEventListener('click', async () => {
+          const out = document.querySelector('#growth-result')
+          const root = document.scrollingElement
+          const startHeight = root.scrollHeight
+          const startY = window.scrollY
+          out.textContent = 'checking...'
+          for (let i = 0; i < 3; i += 1) {
+            window.scrollTo(0, root.scrollHeight)
+            await new Promise(resolve => setTimeout(resolve, 400))
+          }
+          const grewBy = root.scrollHeight - startHeight
+          window.scrollTo(0, startY)
+          out.textContent = grewBy > 0
+            ? `GROWS — ${grewBy}px added over three scrolls to the end. The row is meaningful, go ahead`
+            : 'DOES NOT GROW — this browser is not appending as the page is scrolled, so the fixture ' +
+              'tests nothing and a capture that simply ends is not evidence. Do not record this row.'
+        })
+      }
+      if (fixtureName === 'scroll-snapping') {
+        // The other half of the user-scroll fix, and the one that could regress silently. Holding a
+        // segment's position across its settle is what stops a person's wheel nudge aborting a
+        // capture -- but the same re-assert must NOT paper over a page that genuinely refuses to
+        // hold position, which is the case SCROLL_GAP was written for and must still report.
+        //
+        // Mandatory snap points every 700px do exactly that: every scroll lands on a snap point
+        // rather than where it was asked, on every attempt, so the re-assert can never succeed.
+        const snapStyle = document.createElement('style')
+        snapStyle.textContent =
+          'html{scroll-snap-type:y mandatory}' +
+          '.snap{scroll-snap-align:start;scroll-snap-stop:always;height:700px;' +
+          'display:grid;place-items:center;font:600 26px/1.2 system-ui;border-bottom:2px solid #e6522c}'
+        document.head.append(snapStyle)
+        fixture.innerHTML = Array.from({length: 14}, (_, i) =>
+          `<div class="snap" style="background:${i % 2 ? '#f2d7cb' : '#dce8de'}">SNAP ${i + 1} — mandatory snap point at ${i * 700}px</div>`
+        ).join('')
+      }
+      if (fixtureName === 'local-file-page') {
+        // Opened over `file://`, not served. The page itself is ordinary -- what is under test is
+        // the sentence the extension shows when Chrome refuses a local file, and whether the
+        // picture it hands back is honest about being partial.
+        //
+        // So the fixture is built to make partial obvious without pixel-peeping: a marker in the
+        // first viewport that is always captured, and a FILE END marker that can only be reached by
+        // a full-page capture. Present, and the toggle worked; absent, and the screenshot stops at
+        // the fold no matter what the message claimed.
+        fixture.innerHTML =
+          '<div class="card" style="height:300px;display:grid;place-items:center;font-size:34px">FILE TOP — always in the picture</div>' +
+          sections(9) +
+          '<div class="card" style="height:300px;display:grid;place-items:center;font-size:34px">FILE END — only a full-page capture reaches this</div>'
+      }
+      if (fixtureName === 'unfindable-scroller') {
+        /*
+         * Row 3. A page whose real scroller is deliberately too small to be found.
+         *
+         * `findScrollContainer` requires a candidate to fill at least 40% of the viewport in BOTH
+         * directions. This panel is sized against the live viewport at 30% x 30%, so it fails that
+         * bar on purpose and cannot stop failing it when the window is resized -- which is the trap
+         * `tall-fixed-header` and `narrow-scroller` were written to avoid.
+         *
+         * The document itself does not scroll. So before this row, PageShotter captured the window,
+         * produced a screenshot of the shell with SCROLLER TOP showing and everything below it
+         * missing, and said nothing at all. That silence is the defect: this picture is
+         * indistinguishable from a correct capture of a short page.
+         *
+         * What must happen now: the screenshot is still the visible area -- we cannot scroll what we
+         * cannot find, and guessing would be worse -- but the result page must SAY the page scrolls
+         * something it could not identify.
+         */
+        /*
+         * Pinned with `position: fixed`, not merely `overflow: hidden`.
+         *
+         * Measured over this live DOM: hiding overflow leaves `documentElement.scrollHeight`
+         * reporting the harness's own nav and headings, so `documentScrolls()` stayed **true** and
+         * the fixture reproduced nothing. An app shell does not just hide its overflow -- it takes
+         * its content out of flow so there is none. Doing the same here is what makes the document
+         * genuinely unscrollable.
+         */
+        document.documentElement.style.overflow = 'hidden'
+        document.body.style.overflow = 'hidden'
+        document.body.style.margin = '0'
+        const chrome_ = document.querySelector('#fixture-nav')
+        if (chrome_) chrome_.style.display = 'none'
+        for (const el of document.body.children) {
+          if (el !== fixture && el.tagName !== 'SCRIPT') el.style.display = 'none'
+        }
+        fixture.style.cssText = 'position:fixed;inset:0;overflow:hidden;padding:16px;box-sizing:border-box'
+        const w = Math.round(window.innerWidth * 0.3)
+        const h = Math.round(window.innerHeight * 0.3)
+        fixture.innerHTML =
+          '<div class="card" style="height:120px;display:grid;place-items:center;font-size:22px">' +
+          'PAGE SHELL — the document does not scroll. The panel below does, and is too small to be found.</div>' +
+          '<div id="tiny-scroller" style="width:' + w + 'px;height:' + h + 'px;overflow-y:auto;border:3px solid #E11900">' +
+          '<div style="padding:12px;font:600 20px system-ui">SCROLLER TOP — visible without scrolling</div>' +
+          sections(6) +
+          '<div style="padding:12px;font:600 20px system-ui">SCROLLER END — only reachable by scrolling the panel</div>' +
+          '</div>' +
+          '<p style="font:13px system-ui;max-width:60ch">Panel is ' + w + ' x ' + h + 'px against a ' +
+          window.innerWidth + ' x ' + window.innerHeight + 'px viewport &mdash; under the 40% bar in both directions.</p>'
+      }
+
+      if (fixtureName === 'degraded-capture') {
+        /*
+         * Row 4. One page carrying both degradations that leave a visibly wrong rectangle, so the
+         * sentence can be read with its numbers checked against the page.
+         *
+         * THREE faded blocks, each covered by a fully visible sibling -- which is exactly the guard
+         * that holds the rescue back. They are meant to stay blank; the point of the row is that the
+         * result page now admits it rather than handing back three empty bands in silence.
+         *
+         * TWO videos below the fold pointed at a source that does not exist, so no frame can ever
+         * decode and both photograph black. A missing source is the honest way to force this: a slow
+         * source would make the row depend on how fast this machine is, and the count would change
+         * between runs.
+         *
+         * Expected sentence: 3 pieces of text, 2 videos. If the numbers do not match, the counting
+         * is wrong -- which matters more than the wording, because a count that drifts is worse than
+         * no count at all.
+         */
+        const covered = (n) =>
+          '<div class="card" style="position:relative;height:220px">' +
+          '<div style="opacity:0;position:absolute;inset:0;display:grid;place-items:center;font:600 26px system-ui">' +
+          'FADED TEXT ' + n + ' — must be reported, not revived</div>' +
+          '<div style="position:absolute;inset:0;background:#f4f4f5;display:grid;place-items:center;font:600 20px system-ui">' +
+          'VISIBLE SIBLING ' + n + ' — this is why the faded text is held back</div>' +
+          '</div>'
+        fixture.innerHTML =
+          '<div class="card" style="height:200px;display:grid;place-items:center;font-size:24px">' +
+          'DEGRADED CAPTURE — expect &ldquo;3 pieces of text&rdquo; and &ldquo;2 videos&rdquo;</div>' +
+          covered(1) + covered(2) + covered(3) +
+          sections(8) +
+          '<video id="v-broken-1" src="missing-clip-1.mp4" preload="none" width="320" height="180" ' +
+          'style="background:#000;display:block;margin:16px 0"></video>' +
+          '<p style="font:13px system-ui">BROKEN VIDEO 1 — no such file, so no frame can decode</p>' +
+          '<video id="v-broken-2" src="missing-clip-2.mp4" preload="none" width="320" height="180" ' +
+          'style="background:#000;display:block;margin:16px 0"></video>' +
+          '<p style="font:13px system-ui">BROKEN VIDEO 2 — same</p>' +
+          sections(4)
+      }
+
+      if (fixtureName === 'mutating-page') {
+        setInterval(() => {
+          const section = document.querySelector('section:nth-child(3)')
+          if (section) section.style.minHeight = section.style.minHeight === '500px' ? '360px' : '500px'
+        }, 350)
+      }
+    </script>
+  </body>
+</html>

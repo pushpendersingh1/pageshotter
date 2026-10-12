@@ -1,0 +1,261 @@
+/*
+ * The frame the full-tab surfaces wear, in two shapes.
+ *
+ * The result page is a **document**: one capture, opened, looked at, exported, closed. It wears the
+ * top bar -- lockup on the left, ghost controls on the right -- because there is nowhere else to go
+ * from it.
+ *
+ * History and settings are an **application**: two sections of the same thing, moved between often.
+ * They wear the sidebar instead, which is the only shape that shows where you are as well as where
+ * you can go. Adding the sidebar to one and not the other would have been the worst of both, which
+ * is why it is here rather than in `history.css`.
+ *
+ * Both shapes share the ghost control, the footer, and the eyebrow. Loaded after `tokens.css` and
+ * before the page's own stylesheet, which is free to add to these classes but should not need to
+ * redefine them.
+ *
+ * The popup and the welcome page are deliberately on neither: the popup's header is a different
+ * shape at 360px, and welcome is a document rather than an application surface.
+ */
+
+.eyebrow {
+  font: 600 10px/1 var(--mono);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* ---------- top bar ---------- */
+
+.top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.lockup { display: block; width: 140px; height: auto; color: var(--ink); }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 11px;
+  font: 500 12.5px/1 var(--ui);
+  color: var(--ink-2);
+  text-decoration: none;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  transition: color 160ms ease, background 160ms ease;
+}
+.ghost:hover { color: var(--ink); background: var(--surface-2); }
+.ghost .icon { width: 15px; height: 15px; }
+.ghost.only-icon { padding: 0; width: 32px; justify-content: center; }
+
+/* ---------- footer ---------- */
+
+.foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 18px;
+  border-top: 1px solid var(--line);
+  font: 400 11.5px/1.4 var(--ui);
+  color: var(--ink-2);
+}
+.foot a { color: var(--ink-2); text-underline-offset: 2px; }
+.foot a:hover { color: var(--accent); }
+.foot .privacy { margin-left: auto; }
+
+/*
+ * Below this the footer's two halves stop being a row with two ends and become two lines, which is
+ * the point at which pushing the privacy line to the right edge only makes it hang off its own line.
+ */
+@media (max-width: 760px) {
+  .top { padding: 10px 14px; }
+  .foot { padding: 10px 14px; gap: 8px 16px; }
+  .foot .privacy { margin-left: 0; }
+}
+
+/* The lockup is the first thing to give up room; the wordmark is still legible at 112px. */
+@media (max-width: 560px) {
+  .lockup { width: 112px; }
+}
+
+/* ---------- the sidebar shape ---------- */
+
+.shell {
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  padding: 18px 14px;
+  border-right: 1px solid var(--line);
+}
+/* The lockup is the section it sits over, not a link back to the marketing site. */
+.side .lockup { width: 132px; margin: 4px 4px 2px; }
+
+.nav { display: grid; gap: 2px; }
+.navitem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 11px;
+  font: 500 13.5px/1 var(--ui);
+  color: var(--ink-2);
+  text-decoration: none;
+  border-radius: var(--r);
+  transition: color 160ms ease, background 160ms ease;
+}
+.navitem:hover { color: var(--ink); background: var(--surface-2); }
+.navitem .icon { width: 16px; height: 16px; }
+/*
+ * The page you are on is marked by `aria-current`, not by a class the markup has to remember to
+ * keep in step with the href. Tinted rather than filled: this is a location, not an action.
+ */
+.navitem[aria-current='page'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+/* `margin-top: auto` rather than a spacer element: the storage block belongs at the bottom. */
+.side-foot { margin-top: auto; display: grid; gap: 6px; padding: 0 11px 2px; }
+.side-foot .eyebrow { margin: 0 0 2px; }
+.device, .stored { margin: 0; font: 400 12px/1.45 var(--ui); color: var(--ink-2); }
+.stored { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; }
+.stored:empty { display: none; }
+/* Green, and the only non-accent colour in the system: it reports a fact, it is not brand or state. */
+.device .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #22a06b;
+}
+.side-foot .ghost { margin: 6px 0 0 -11px; }
+
+/* Only this column scrolls; the sidebar and the page's own bars stay put. */
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+/*
+ * Below this the sidebar stops being a column and becomes a strip across the top: at 760px a 232px
+ * rail is a third of the window, and the list it exists to serve is what should have that space.
+ */
+@media (max-width: 760px) {
+  .shell { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .side {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .side .lockup { width: 116px; margin: 0; }
+  .nav { grid-auto-flow: column; gap: 4px; }
+  .side-foot { margin: 0 0 0 auto; padding: 0; grid-auto-flow: column; align-items: center; gap: 10px; }
+  /* The storage report is the first thing to go: the nav is what the strip is for. */
+  .side-foot .eyebrow, .device, .stored { display: none; }
+  .side-foot .ghost { margin: 0; }
+}
+
+/*
+ * The danger button, shared: History deletes a selection with it and Settings deletes everything.
+ * It lives here rather than in either page's own stylesheet because two copies of a colour is the
+ * failure `tokens.css` exists to prevent, and this one carries a rule that is easy to get wrong.
+ *
+ * At rest it is an ordinary button with an accent edge and glyph, not a slab of red: it sits beside
+ * safe controls and a permanently loud button stops meaning anything. It fills once the pointer is
+ * on it, or once it is armed.
+ */
+.btn.danger {
+  color: var(--ink);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+.btn.danger .icon { color: var(--accent); }
+/*
+ * Filled on hover and on the confirmation, because by then the click is the next thing that happens.
+ * Restated rather than inherited: `.btn:hover:not(:disabled)` is (0,3,0) and `.btn.danger` only
+ * (0,2,0), so without this the hover rule wins and the button goes back to looking ordinary --
+ * the same specificity inversion that once made the result page's primary label vanish.
+ */
+.btn.danger:hover:not(:disabled),
+.btn.danger[data-confirming='true'],
+.btn.danger[data-confirming='true']:hover:not(:disabled) {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.btn.danger:hover:not(:disabled) .icon,
+.btn.danger[data-confirming='true'] .icon { color: inherit; }
+
+/*
+ * The confirmation dialog for a deletion with nothing behind it.
+ *
+ * A native `<dialog>`, so Escape closes it, focus is trapped, and the backdrop comes from the
+ * browser rather than a hand-rolled overlay that would sit at the wrong z-index on one page.
+ */
+.confirm {
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  max-width: min(420px, calc(100vw - 32px));
+}
+.confirm::backdrop { background: rgb(26 26 26 / 0.45); }
+.confirm-body { display: grid; gap: 8px; padding: 20px 20px 16px; }
+.confirm-body h2 { margin: 0; font: 600 15px/1.3 var(--ui); }
+.confirm-body p { margin: 0; font: 400 13px/1.55 var(--ui); color: var(--ink-2); }
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 20px 20px;
+}
+
+/*
+ * The top bar of a sidebar page: the title gives up room, the controls do not, and the controls sit
+ * at the trailing edge -- which is where the result page's top bar already puts them, so the theme
+ * button lands in the same corner whichever surface you are on.
+ *
+ * Shared because it was forked. History declared the row and Settings did not, so Settings' `.tools`
+ * fell to the left under the title while History's sat right, and the theme button appeared to move
+ * when you navigated between two pages that are meant to be the same frame.
+ */
+.bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+/* A long title beside a control cluster needs both halves declaring how they give up room. */
+.titlewrap { flex: 1 1 280px; min-width: 0; }
+.titlewrap h1 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.015em; }
+.tools { flex: none; display: flex; align-items: center; gap: 8px; }
+
+@media (max-width: 760px) {
+  .tools { width: 100%; }
+}

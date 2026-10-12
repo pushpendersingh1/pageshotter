@@ -1,0 +1,108 @@
+<div class="split">
+  <button id="download" class="btn primary" type="button" disabled><svg class="icon" data-icon="download" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span class="button-label">Download PNG</span></button>
+  <button
+    id="export-options"
+    class="btn primary caret"
+    type="button"
+    aria-haspopup="true"
+    aria-expanded="false"
+    aria-label="Export options"
+    disabled
+  >
+    <svg class="icon" data-icon="chevron-down" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+  </button>
+
+  <div id="export-menu" class="menu" role="group" aria-label="Export options" hidden>
+    <div class="head">
+      <span class="eyebrow">Format</span>
+      <a
+        class="menu-link"
+        href="https://www.pageshotter.com/screenshot-formats/"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Guide to formats, quality and scale, on the PageShotter website"
+        >Guide<svg class="icon" data-icon="external-link" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></a
+      >
+    </div>
+    <div class="seg" role="group" aria-label="File format">
+      <button type="button" data-format="png" aria-pressed="true">PNG</button>
+      <button type="button" data-format="jpeg" aria-pressed="false">JPEG</button>
+      <button type="button" data-format="webp" aria-pressed="false">WebP</button>
+      <button type="button" data-format="pdf" aria-pressed="false">PDF</button>
+    </div>
+
+    <div class="panel" data-panel="jpeg" hidden>
+      <hr />
+      <span class="eyebrow">Quality</span>
+      <div class="range">
+        <input id="jpeg-quality" type="range" min="50" max="100" step="5" value="90" aria-label="JPEG quality" />
+        <b id="jpeg-quality-out">90%</b>
+      </div>
+    </div>
+
+    <div class="panel" data-panel="webp" hidden>
+      <hr />
+      <span class="eyebrow">Quality</span>
+      <div class="range">
+        <input id="webp-quality" type="range" min="50" max="100" step="5" value="90" aria-label="WebP quality" />
+        <b id="webp-quality-out">90%</b>
+      </div>
+    </div>
+
+    <div class="panel" data-panel="pdf" hidden>
+      <hr />
+      <span class="eyebrow">PDF options</span>
+      <label class="opt"><input id="pdf-no-text" type="checkbox" /> <span>Disable text selection</span></label>
+      <label class="opt"><input id="pdf-text" type="checkbox" /> <span>Text-searchable</span></label>
+      <label class="opt"><input id="pdf-links" type="checkbox" /> <span>Direct links</span></label>
+      <label class="opt"><input id="pdf-split" type="checkbox" /> <span>Split to pages</span></label>
+      <label class="opt"><input id="pdf-custom-size" type="checkbox" /> <span>Custom page size</span></label>
+      <div class="nest">
+        <select id="pdf-page-size" class="page-size" aria-label="Page size" hidden>
+          <option value="a4">A4</option>
+          <option value="letter">Letter</option>
+          <option value="legal">Legal</option>
+        </select>
+      </div>
+    </div>
+
+    <!--
+      The rule above Scale is the one between it and the *format row*, so it is drawn only when no
+      format panel sits between the two. On JPEG, WebP and PDF the panel's own rule already divides
+      them, and a second one would box Quality in.
+    -->
+    <div id="scale-row" class="panel">
+      <hr />
+      <span class="eyebrow">Scale</span>
+      <div class="row">
+        <select id="export-scale" class="page-size" aria-label="Export scale">
+          <option value="1">100% — captured size</option>
+          <option value="0.75">75%</option>
+          <option value="0.5">50%</option>
+          <option value="0.25">25%</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="export-outcome" class="outcome">
+      <svg class="ratio" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+        <rect class="ratio-full" x="1" y="1" width="16" height="16" rx="3" />
+        <rect id="ratio-part" class="ratio-part" x="1" y="1" width="16" height="16" rx="3" />
+      </svg>
+      <span class="outcome-lines">
+        <b id="export-outcome-size"></b>
+        <span class="outcome-ratio">
+          <span id="export-outcome-ratio"></span>
+          <!--
+            A fixed-width slot, so the row is the same width whether it holds the spinner, the size,
+            or nothing at all. The size arrives a beat after the menu settles and the line must not
+            jump when it does.
+          -->
+          <span id="export-outcome-weight" class="weight" data-state="off"><span class="spin" aria-hidden="true"></span><span class="weight-value"></span></span>
+        </span>
+      </span>
+    </div>
+
+    <p id="export-menu-note" class="menu-note" hidden></p>
+  </div>
+</div>

@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "PageShotter - Full Page Screenshot",
+  "short_name": "PageShotter",
+  "version": "1.5.0",
+  "minimum_chrome_version": "120",
+  "description": "Capture, edit, and annotate full-page, visible-area, or element screenshots locally. Export searchable PDFs with clickable links.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "optional_permissions": [
+    "downloads"
+  ],
+  "options_page": "settings.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "PageShotter",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "commands": {
+    "capture-full-page": {
+      "suggested_key": {
+        "default": "Alt+Shift+P",
+        "mac": "Alt+Shift+P"
+      },
+      "description": "Capture the full page"
+    },
+    "capture-visible-area": {
+      "description": "Capture the visible area"
+    }
+  }
+}

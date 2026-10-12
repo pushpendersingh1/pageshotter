@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit capture - PageShotter</title>
+    <script src="theme-boot.js"></script>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="page-frame.css" />
+    <link rel="stylesheet" href="export-menu.css" />
+    <link rel="stylesheet" href="confirm-delete.css" />
+    <link rel="stylesheet" href="editor.css" />
+  </head>
+  <body>
+    <header class="editor-top">
+      <div class="editor-identity">
+        <!--
+          The mark is the left-hand way out, and it is the same action as Done rather than a second
+          one: both save the document and return to the result page through `done()`. Two triggers,
+          one code path -- an exit that saved and an exit that did not would be a trap.
+        -->
+        <!--
+          The square mark, not the wordmark. `page-frame.css` gives `.lockup` a 140px width, and at
+          the editor's 52px bar that ran straight into the page title beside it. This is the app's own
+          icon, already packaged, and it stays brand red (--accent-hi) in both themes.
+        -->
+        <button id="home" class="editor-mark" type="button" aria-label="Save and return to the screenshot">
+          <img class="editor-mark-glyph" src="icons/icon.svg" alt="PageShotter" width="26" height="26" />
+        </button>
+        <span class="top-rule" aria-hidden="true"></span>
+        <div class="editor-title">
+          <strong id="title">Preparing your screenshot...</strong>
+          <span id="host"></span>
+        </div>
+      </div>
+
+      <!--
+        View controls, centred. The middle grid track is `auto` between two equal `1fr` tracks, so
+        this cluster sits on the true centre of the window whatever the title's length.
+      -->
+      <div class="editor-view" role="group" aria-label="View">
+        <button id="undo" class="top-icon" type="button" aria-label="Undo" disabled><svg class="icon" data-icon="arrow-back-up" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+        <button id="redo" class="top-icon" type="button" aria-label="Redo" disabled><svg class="icon" data-icon="arrow-forward-up" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+        <span class="top-rule" aria-hidden="true"></span>
+        <div class="zoom-well">
+          <button id="zoom-out" class="top-icon" type="button" aria-label="Zoom out"><svg class="icon" data-icon="minus" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+          <button id="zoom-value" class="zoom-value" type="button" aria-haspopup="menu" aria-expanded="false">Fit</button>
+          <button id="zoom-in" class="top-icon" type="button" aria-label="Zoom in"><svg class="icon" data-icon="plus" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+        </div>
+        <button id="zoom-fit" class="top-icon" type="button" aria-label="Fit to window"><svg class="icon" data-icon="arrows-maximize" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+        <span class="top-rule" aria-hidden="true"></span>
+        <button id="minimize-ui" class="top-icon minimize-ui" type="button" aria-label="Minimise interface"><svg class="icon" data-icon="arrows-diagonal-minimize-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+        <div id="zoom-menu" class="tool-flyout zoom-menu" role="menu" hidden>
+          <button type="button" role="menuitem" data-zoom="0.5"><span>50%</span></button>
+          <button type="button" role="menuitem" data-zoom="1"><span>100%</span><span class="keys-caps" data-keys="shift+0"></span></button>
+          <button type="button" role="menuitem" data-zoom="2"><span>200%</span></button>
+          <button type="button" role="menuitem" data-zoom="fit"><span>Fit</span><span class="keys-caps" data-keys="shift+1"></span></button>
+          <button type="button" role="menuitem" data-zoom="fill"><span>Fill</span></button>
+          <button type="button" role="menuitem" data-zoom="selection"><span>Zoom to selection</span><span class="keys-caps" data-keys="shift+2"></span></button>
+          <button id="zoom-grid" type="button" role="menuitemcheckbox" data-zoom="grid" aria-checked="false"><span>Snap to grid</span><svg class="icon check" data-icon="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+          <button type="button" role="menuitem" data-zoom="keys"><span>Keyboard shortcuts</span><span class="keys-caps" data-keys="?"></span></button>
+        </div>
+      </div>
+      <div class="editor-actions">
+        <button id="copy" class="btn" type="button" disabled><svg class="icon" data-icon="copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span class="button-label">Copy</span></button>
+        <button id="print" class="btn" type="button" disabled><svg class="icon" data-icon="printer" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span class="button-label">Print</span></button>
+        <!-- export-menu -->
+        <button id="done" class="btn" type="button" disabled><svg class="icon" data-icon="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span class="button-label">Done</span></button>
+        <div class="more-slot">
+          <button id="more" class="top-icon" type="button" aria-label="More actions" aria-haspopup="menu" aria-expanded="false"><svg class="icon" data-icon="dots" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+          <!--
+            Delete keeps its id and its `.button-label` span so every existing handler, the two
+            result-page load paths that enable it, and `busy()` all still find what they look for.
+            Moving a verified button into a menu changes the flow, not the code beneath it.
+          -->
+          <div id="more-menu" class="tool-flyout" role="menu" hidden>
+            <button id="editor-defaults" type="button" role="menuitem" aria-haspopup="dialog" aria-controls="editor-defaults-dialog"><svg class="icon" data-icon="adjustments-horizontal" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Editor defaults</span></button>
+            <button id="more-shortcuts" type="button" role="menuitem"><svg class="icon" data-icon="keyboard" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Keyboard shortcuts</span><span class="keys-caps" data-keys="?"></span></button>
+            <span class="menu-rule" role="separator"></span>
+            <button id="delete-capture" type="button" role="menuitem" class="danger" disabled><svg class="icon" data-icon="trash" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span class="button-label">Delete capture...</span></button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="editor-main" class="editor-main">
+      <aside id="layers-panel" class="editor-panel layers-panel" aria-label="Layers">
+        <header class="panel-head">
+          <span class="eyebrow">Layers</span>
+          <button id="collapse-layers" class="panel-toggle" type="button" aria-label="Collapse layers"><svg class="icon collapse" data-icon="layout-sidebar-left-collapse" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><svg class="icon expand" data-icon="layout-sidebar-left-expand" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+        </header>
+        <div id="layers-empty" class="panel-pending"><svg class="icon" data-icon="box-multiple" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Pick a tool below, then drag on the capture.</span></div>
+        <div id="layers-list" class="layers-list" role="tree" aria-label="Layers" tabindex="0"></div>
+        <!-- Pinned, and not draggable, deletable or hideable: the floor of the z-order by definition. -->
+        <!--
+          The capture itself: the floor of the z-order, and the one row that is never draggable,
+          deletable or hideable. Its size is the capture's own pixels, straight off `doc.capture`,
+          which is the one rectangle in the scene that is never derived from anything.
+        -->
+        <button id="frame-row" class="frame-row" type="button" aria-pressed="false"><svg class="icon" data-icon="photo" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Capture</span><span id="frame-size" class="frame-size"></span><svg class="icon lock" data-icon="lock" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+
+        <!--
+          Rows are cloned rather than written as strings, because icons are inlined at build time
+          from `data-icon` and a runtime-built glyph would have nowhere to come from.
+        -->
+        <template id="layer-row-template">
+          <div class="layer-row" role="treeitem" aria-selected="false">
+            <button class="row-chevron" type="button" tabindex="-1" aria-label="Expand group"><svg class="icon" data-icon="chevron-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <span class="row-type"></span>
+            <span class="row-name"></span>
+            <button class="row-eye" type="button" tabindex="-1" aria-label="Hide layer"><svg class="icon eye-on" data-icon="eye" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><svg class="icon eye-off" data-icon="eye-off" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <button class="row-lock" type="button" tabindex="-1" aria-label="Lock layer"><svg class="icon" data-icon="lock" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+          </div>
+        </template>
+        <div id="layer-icons" hidden aria-hidden="true">
+          <svg class="icon" data-type="rectangle" data-icon="lucide:square" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="ellipse" data-icon="lucide:circle" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="arrow" data-icon="lucide:arrow-up-right" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="line" data-icon="lucide:slash" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="text" data-icon="lucide:type" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="blur" data-icon="lucide:blend" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="highlight" data-icon="lucide:highlighter" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="freehand" data-icon="lucide:pencil" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="counter" data-icon="local:counter" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="magnifier" data-icon="local:magnifier" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="emoji" data-icon="lucide:smile" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="image" data-icon="lucide:image" viewBox="0 0 24 24" focusable="false"></svg>
+          <svg class="icon" data-type="group" data-icon="box-multiple" viewBox="0 0 24 24" focusable="false"></svg>
+        </div>
+      </aside>
+
+      <section id="canvas" class="editor-canvas" aria-label="Editor canvas">
+        <div id="canvas-scroll" class="canvas-scroll"><div id="canvas-space"></div></div>
+        <div id="stage-host" class="stage-host"></div>
+        <p id="editor-error" class="editor-error" role="alert" hidden></p>
+        <div id="drop-zone" class="drop-zone" hidden aria-hidden="true">
+          <div class="drop-card">
+            <span class="drop-flame">🔥</span>
+            <svg class="icon drop-icon" data-icon="lucide:image-plus" viewBox="0 0 24 24" focusable="false"></svg>
+            <strong>Drop it while it's hot</strong>
+            <span>PNG, JPEG, WebP or GIF</span>
+          </div>
+        </div>
+        <!--
+          Text is edited in a DOM element, not on the canvas. It is positioned and scaled over
+          the node it is editing, with the same font, size, colour, line height and alignment, and
+          only that node is hidden while it is open.
+        -->
+        <textarea id="text-editor" class="text-editor" spellcheck="false" aria-label="Edit text" hidden></textarea>
+
+
+        <div class="tool-dock" role="toolbar" aria-label="Editor tools">
+          <div class="tool-cluster grouped-tool" data-tool-group="navigate">
+            <button class="tool-button group-main" type="button" data-tool="move" aria-label="Move (V)" aria-pressed="true"><svg class="icon" data-tool-icon data-icon="lucide:mouse-pointer-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <button class="tool-caret" type="button" aria-label="Choose navigation tool" aria-haspopup="menu" aria-expanded="false"><svg class="icon" data-icon="chevron-down" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <div class="tool-flyout" role="menu" hidden>
+              <button type="button" role="menuitemradio" data-tool="move" aria-checked="true"><svg class="icon" data-icon="lucide:mouse-pointer-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Move</span><span class="keys-caps" data-keys="V"></span><svg class="icon check" data-icon="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+              <button type="button" role="menuitemradio" data-tool="hand" aria-checked="false"><svg class="icon" data-icon="lucide:hand" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Hand</span><span class="keys-caps" data-keys="H"></span><svg class="icon check" data-icon="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            </div>
+          </div>
+          <span class="dock-rule" aria-hidden="true"></span>
+          <div class="tool-cluster draw-cluster">
+            <div class="grouped-tool" data-tool-group="shape">
+              <button class="tool-button group-main" type="button" data-tool="rectangle" aria-label="Rectangle (R)" aria-pressed="false"><svg class="icon" data-tool-icon data-icon="lucide:square" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+              <button class="tool-caret" type="button" aria-label="Choose shape tool" aria-haspopup="menu" aria-expanded="false"><svg class="icon" data-icon="chevron-down" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+              <div class="tool-flyout" role="menu" hidden>
+                <button type="button" role="menuitemradio" data-tool="rectangle" aria-checked="true"><svg class="icon" data-icon="lucide:square" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Rectangle</span><span class="keys-caps" data-keys="R"></span><svg class="icon check" data-icon="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+                <button type="button" role="menuitemradio" data-tool="ellipse" aria-checked="false"><svg class="icon" data-icon="lucide:circle" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Ellipse</span><span class="keys-caps" data-keys="O"></span><svg class="icon check" data-icon="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+                <button type="button" role="menuitemradio" data-tool="arrow" aria-checked="false"><svg class="icon" data-icon="lucide:arrow-up-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Arrow</span><span class="keys-caps" data-keys="A"></span><svg class="icon check" data-icon="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+                <button type="button" role="menuitemradio" data-tool="line" aria-checked="false"><svg class="icon" data-icon="lucide:slash" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Line</span><span class="keys-caps" data-keys="L"></span><svg class="icon check" data-icon="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+              </div>
+            </div>
+            <button class="tool-button" type="button" data-tool="text" aria-label="Text (T)" aria-pressed="false"><svg class="icon" data-icon="lucide:type" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <button class="tool-button" type="button" data-tool="blur" aria-label="Blur (B)" aria-pressed="false"><svg class="icon" data-icon="lucide:blend" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <button class="tool-button" type="button" data-tool="highlight" aria-label="Highlight (U)" aria-pressed="false"><svg class="icon" data-icon="lucide:highlighter" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <div class="grouped-tool" data-tool-group="stroke">
+              <button class="tool-button group-main" type="button" data-tool="freehand" aria-label="Pen (D)" aria-pressed="false"><svg class="icon" data-tool-icon data-icon="lucide:pencil" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+              <button class="tool-caret" type="button" aria-label="Choose stroke tool" aria-haspopup="menu" aria-expanded="false"><svg class="icon" data-icon="chevron-down" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+              <div class="tool-flyout" role="menu" hidden>
+                <button type="button" role="menuitemradio" data-tool="freehand" aria-checked="true"><svg class="icon" data-icon="lucide:pencil" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Pen</span><span class="keys-caps" data-keys="D"></span><svg class="icon check" data-icon="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+                <button type="button" role="menuitemradio" data-tool="marker" aria-checked="false"><svg class="icon" data-icon="lucide:pen-line" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Marker</span><span class="keys-caps" data-keys="K"></span><svg class="icon check" data-icon="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+              </div>
+            </div>
+            <button class="tool-button" type="button" data-tool="counter" aria-label="Counter (N)" aria-pressed="false"><svg class="icon" data-icon="local:counter" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <button class="tool-button" type="button" data-tool="magnifier" aria-label="Magnifier (M)" aria-pressed="false"><svg class="icon" data-icon="local:magnifier" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <button id="image-tool" class="tool-button" type="button" aria-label="Image (I)"><svg class="icon" data-icon="lucide:image-plus" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <input id="image-file" type="file" multiple hidden>
+            <div id="emoji-slot" class="emoji-slot">
+              <button class="tool-button" type="button" data-tool="emoji" aria-label="Emoji (E)" aria-pressed="false" aria-haspopup="dialog" aria-controls="emoji-picker"><svg class="icon" data-icon="lucide:smile" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+              <div id="emoji-picker" class="emoji-picker" role="dialog" aria-label="Emoji" hidden></div>
+            </div>
+          </div>
+          <span class="dock-rule" aria-hidden="true"></span>
+          <div class="tool-cluster frame-cluster">
+            <!--
+              Present is a dock button, not an overflow row. An earlier build moved it into the `...` menu
+              and it could not be found there: it is the one control
+              that opens a whole panel of its own, so it needs to be somewhere a pointer lands.
+            -->
+            <button id="present-tool" class="tool-button" type="button" data-frame-tool="present" aria-label="Present (P)" aria-pressed="false" disabled><svg class="icon" data-icon="lucide:presentation" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <button id="crop-tool" class="tool-button" type="button" data-frame-tool="crop" aria-label="Crop (C)" aria-pressed="false" disabled><svg class="icon" data-icon="lucide:crop" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+          </div>
+          <span class="dock-rule" aria-hidden="true"></span>
+          <!--
+            Help and theme, at the far right of the dock. `?` moved here from the top bar's view
+            cluster: it is a dock affordance, and the bar had grown long. The theme
+            toggle is new to the editor -- every other extension surface already had one, and the
+            editor is the surface where a wrong theme is most obvious, since the capture beside it
+            never follows the theme.
+          -->
+          <div class="tool-cluster">
+            <button id="shortcut-help" class="tool-button" type="button" aria-label="Keyboard shortcuts (?)" aria-haspopup="dialog" aria-expanded="false"><span class="keys-caps" data-keys="?"></span></button>
+            <button id="editor-theme" class="tool-button" type="button"><svg class="icon" data-icon="device-desktop" data-theme-icon="system" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><svg class="icon" data-icon="sun" data-theme-icon="light" viewBox="0 0 24 24" aria-hidden="true" focusable="false" hidden></svg><svg class="icon" data-icon="moon" data-theme-icon="dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false" hidden></svg></button>
+          </div>
+        </div>
+
+      </section>
+
+      <aside id="inspector-panel" class="editor-panel inspector-panel" aria-label="Inspector">
+        <header class="panel-head">
+          <!-- What is selected, named by the Inspector on every render. -->
+          <span id="inspector-title" class="eyebrow">Capture</span>
+          <span class="panel-head-actions">
+            <button id="inspector-hide" class="panel-toggle head-part" type="button" aria-label="Hide selection"><svg class="icon eye-on" data-icon="eye" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><svg class="icon eye-off" data-icon="eye-off" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <button id="inspector-delete" class="panel-toggle head-part" type="button" aria-label="Delete selection"><svg class="icon" data-icon="trash" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <button id="collapse-inspector" class="panel-toggle" type="button" aria-label="Collapse inspector"><svg class="icon collapse" data-icon="layout-sidebar-right-collapse" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><svg class="icon expand" data-icon="layout-sidebar-right-expand" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+          </span>
+        </header>
+        <div id="inspector" class="inspector"></div>
+        <!--
+          The Appearance section's own menu. Cloned rather than built, because `data-icon` glyphs
+          are inlined at build time and a runtime-built `<svg>` would have nowhere to come from.
+        -->
+        <template id="section-menu-template">
+          <span class="section-menu">
+            <button class="section-menu-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Style defaults"><svg class="icon" data-icon="settings" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+            <div class="tool-flyout section-flyout" role="menu" hidden>
+              <button class="section-menu-save" type="button" role="menuitem"><svg class="icon" data-icon="bookmark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Set current style as default</span></button>
+              <button class="section-menu-reset" type="button" role="menuitem"><svg class="icon" data-icon="restore" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span class="section-menu-reset-label">Reset default</span></button>
+            </div>
+          </span>
+        </template>
+      </aside>
+    </main>
+
+    <!--
+      The status bar states the output size, and it reads the same `outputLabel()` the inspector's
+      Output row and the export menu read. A formula (capture + 2 x margin,
+      plus 84 for a browser bar) would only approximate of what `renderRect` already
+      computes exactly, and a second formula is precisely how the three stop agreeing.
+    -->
+    <footer class="editor-status">
+      <span id="dimensions" class="status-size"></span>
+      <span class="status-right">
+        <span id="status-selection">Nothing selected</span>
+        <span class="status-dot" aria-hidden="true">&middot;</span>
+        <span>Saved on this device</span>
+      </span>
+    </footer>
+    <!--
+      The ? shortcuts sheet, opened by ?, by the ? button in the zoom pill, or from either
+      menu. Its rows, keycaps and footer are drawn by `shortcut-overlay.ts` from `shortcuts.ts`.
+    -->
+    <dialog id="shortcut-overlay" class="keys-dialog" aria-labelledby="shortcut-heading">
+      <header class="keys-head">
+        <div class="keys-htext">
+          <h2 id="shortcut-heading">Keyboard shortcuts</h2>
+          <p>Everything the editor answers to. Nothing here is aspirational.</p>
+        </div>
+        <span class="keys-platform seg seg-fit" aria-label="Modifier names">
+          <button type="button" value="mac" aria-pressed="true">macOS</button>
+          <button type="button" value="windows" aria-pressed="false">Windows</button>
+        </span>
+        <span class="keys-filter">
+          <input type="search" placeholder="Filter" aria-label="Filter shortcuts" autocomplete="off" spellcheck="false" />
+        </span>
+        <button class="keys-close panel-toggle" type="button" aria-label="Close"><svg class="icon" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+      </header>
+      <div class="keys-grid"><p class="keys-empty" hidden></p></div>
+      <footer class="keys-foot">
+        <span class="keys-gestures"></span>
+        <span class="keys-anywhere">Press <span class="keys-caps" data-keys="?"></span> to open this anywhere</span>
+      </footer>
+    </dialog>
+
+    <!--
+      The editor-defaults sheet: a left nav of the things that have defaults, and a pane whose
+      controls are the inspector's own, mounted by `editor-defaults-dialog.ts` over a sample shape.
+      Nothing about a control lives here, so the two surfaces cannot drift.
+    -->
+    <dialog id="editor-defaults-dialog" class="dd" aria-labelledby="editor-defaults-heading">
+      <header class="dd-head">
+        <div class="dd-htext">
+          <h2 id="editor-defaults-heading">Editor defaults</h2>
+          <p>What new objects and new captures start from. Nothing you have already edited changes.</p>
+        </div>
+        <button id="editor-defaults-close" class="panel-toggle" type="button" aria-label="Close"><svg class="icon" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg></button>
+      </header>
+      <div class="dd-body">
+        <nav id="editor-defaults-nav" class="dd-nav" aria-label="Defaults"></nav>
+        <div class="dd-pane">
+          <div class="dd-h">
+            <h3 id="editor-defaults-title">Rectangle</h3>
+            <p id="editor-defaults-sub"></p>
+          </div>
+          <div id="editor-defaults-preview" class="dd-preview"><span class="dd-paper"></span></div>
+          <div id="editor-defaults-form" class="dd-ctrls"></div>
+        </div>
+      </div>
+      <footer class="dd-foot">
+        <span class="dd-foot-actions">
+          <button id="editor-defaults-reset-one" class="btn" type="button">Reset rectangle</button>
+          <button id="editor-defaults-reset" class="dd-ghost" type="button">Reset everything to factory</button>
+        </span>
+        <p id="editor-defaults-status" role="status" aria-live="polite">Changes save on this device as you make them.</p>
+      </footer>
+    </dialog>
+    <dialog id="editor-defaults-reset-dialog" class="defaults-confirm" aria-labelledby="editor-defaults-reset-heading">
+      <form method="dialog">
+        <h2 id="editor-defaults-reset-heading">Reset every editor default?</h2>
+        <p>This cannot be undone. Rectangle, ellipse, arrow, line, text, blur, highlight, emoji and presentation defaults will all return to their factory values. Existing editor documents are not changed.</p>
+        <div class="defaults-confirm-actions">
+          <button class="btn" type="submit" value="cancel">Keep my defaults</button>
+          <button class="btn primary" type="submit" value="reset">Reset defaults</button>
+        </div>
+      </form>
+    </dialog>
+    <p id="editor-action-alert" class="editor-action-alert" role="status" aria-live="polite" hidden><svg class="icon" data-icon="circle-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span id="editor-alert-text"></span></p>
+    <script src="editor.js"></script>
+  </body>
+</html>

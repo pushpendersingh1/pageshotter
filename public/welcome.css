@@ -1,0 +1,197 @@
+/*
+ * The page shown once, on install. Tokens come from `tokens.css`; nothing here declares a colour.
+ *
+ * It is the only extension surface with room to explain rather than assert, which is why the privacy
+ * section is a table of facts instead of a claim. Every row of it is the same row in
+ * the store's privacy disclosure -- if one changes, both change, or this page becomes a third
+ * place the privacy story can quietly drift.
+ */
+
+body { background: var(--stage); color: var(--ink); }
+
+.page {
+  /* 68ch of running text at 16px, which is where prose stops being scanned and starts being read. */
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 56px 24px 72px;
+  display: grid;
+  gap: 44px;
+}
+
+/* ---------- hero ---------- */
+
+.hero { display: grid; gap: 14px; justify-items: start; }
+.lockup { display: block; width: 196px; height: auto; color: var(--ink); }
+.hero h1 {
+  margin: 6px 0 0;
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.lede { margin: 0; max-width: 60ch; font-size: 16px; line-height: 1.55; color: var(--ink-2); }
+/*
+ * The one instruction on the page that is about Chrome rather than about PageShotter, so it is set
+ * apart: someone who cannot find the button has a different problem from someone reading the rest.
+ */
+.pin {
+  margin: 6px 0 0;
+  max-width: 60ch;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+/* ---------- blocks ---------- */
+
+.block { display: grid; gap: 14px; }
+.eyebrow {
+  font: 600 10px/1 var(--mono);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.lede-2 { margin: 0; max-width: 66ch; font-size: 15px; line-height: 1.6; color: var(--ink-2); }
+.note { margin: 0; max-width: 66ch; font-size: 13.5px; line-height: 1.6; color: var(--ink-2); }
+
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.cards.two { grid-template-columns: repeat(2, 1fr); }
+/*
+ * A hairline and a surface, no shadow. Section 12 rules out drop shadows on cards: the shadow tokens
+ * exist for things that float over the page and for a captured image sitting on the stage, and a
+ * card that is simply part of the page is neither.
+ */
+.card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.card .icon { width: 18px; height: 18px; color: var(--accent); }
+.card h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
+.card p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-2); }
+.card code { font: 500 13.5px/1 var(--mono); }
+
+/* ---------- the shortcut row ---------- */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+/* `flex: 1` pushes the button to the far edge, so the row has two ends rather than a left huddle. */
+.row-text { flex: 1; display: grid; gap: 5px; min-width: 0; }
+.row-text h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.row-text p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-2); }
+
+/* An assigned binding is a machine fact, so it is set in mono and framed as a key. */
+.key {
+  display: inline-block;
+  padding: 2px 6px;
+  font: 600 12px/1.35 var(--mono);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 10px 16px;
+  font: 600 14px/1 var(--ui);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.button:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: var(--surface); }
+.button .icon { width: 15px; height: 15px; }
+
+/* ---------- the facts table ---------- */
+
+/*
+ * Wide content gets its own horizontal scroll rather than pushing the page sideways; on a narrow
+ * window the table scrolls and the prose around it does not move.
+ */
+.facts {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  line-height: 1.5;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.facts thead th {
+  padding: 11px 16px;
+  text-align: left;
+  font: 600 10px/1.4 var(--mono);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--line);
+}
+.facts td { padding: 13px 16px; vertical-align: top; color: var(--ink-2); }
+/* The first column names the thing; it is the only part of a row read on its own. */
+.facts tbody td:first-child { color: var(--ink); font-weight: 500; }
+.facts tbody tr + tr td { border-top: 1px solid var(--line); }
+
+/* ---------- foot ---------- */
+
+.foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.link {
+  padding: 0;
+  font: 500 13px/1 var(--ui);
+  color: var(--ink-2);
+  text-decoration: none;
+  background: none;
+  border: 0;
+}
+.link:hover { color: var(--accent); text-decoration: underline; }
+.link:focus-visible { outline-offset: 3px; border-radius: 3px; }
+.version { margin-left: auto; font: 500 11px/1 var(--mono); color: var(--ink-2); }
+
+/* Present for screen readers, absent on screen — used for the table's caption. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .page { padding: 36px 18px 56px; gap: 36px; }
+  .cards, .cards.two { grid-template-columns: 1fr; }
+  .row { flex-direction: column; align-items: stretch; gap: 16px; }
+  .button { justify-content: center; }
+  .version { margin-left: 0; }
+}

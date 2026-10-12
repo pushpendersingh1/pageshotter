@@ -1,0 +1,39 @@
+{
+  "name": "pageshotter",
+  "version": "1.5.0",
+  "description": "Full-page, visible-area and selection screenshots for Chrome, captured and edited locally.",
+  "license": "MIT",
+  "homepage": "https://www.pageshotter.com",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "package": "npm run build && node scripts/package.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "fixtures": "npx serve tests/fixtures -l 4173",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@tabler/icons": "3.46.0",
+    "@types/chrome": "0.2.5",
+    "esbuild": "0.28.2",
+    "eslint": "10.8.1",
+    "fflate": "0.8.3",
+    "lucide-static": "1.45.0",
+    "serve": "14.2.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.10"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "konva": "10.3.3"
+  }
+}

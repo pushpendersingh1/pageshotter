@@ -1,0 +1,112 @@
+/*
+ * The delete confirmation, shared by the result page and the editor.
+ *
+ * Its own sheet rather than a copy in each surface's: the result page is on `page-frame.css` and the
+ * editor is on nothing but `editor.css`, so there is no existing file both already load. It defines
+ * only this dialog, so adding it to a surface cannot change anything already on that surface.
+ *
+ * The motion is section 9's, not a new vocabulary: an entrance at .30s on the reveal curve, a fade
+ * for the backdrop, and a .28s sweep on the page-travel curve for the commit. The sweep is the only
+ * invented part, and it earns its place -- it is the moment the deletion becomes irreversible, and a
+ * button that simply vanishes gives that moment nothing at all.
+ */
+
+.pd-dialog {
+  padding: 0;
+  max-width: min(400px, calc(100vw - 32px));
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+}
+.pd-dialog::backdrop { background: var(--scrim); }
+
+.pd-body { display: grid; gap: 9px; padding: 20px 20px 16px; }
+.pd-head { display: flex; align-items: center; gap: 10px; }
+.pd-head h2 { margin: 0; font: 600 15px/1.3 var(--ui); }
+/* Section 12 forbids an icon in a filled circle, so the mark is the glyph on a soft accent square. */
+.pd-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 8px;
+}
+.pd-mark .icon { width: 16px; height: 16px; }
+.pd-body p { margin: 0; font: 400 13px/1.55 var(--ui); color: var(--ink-2); }
+.pd-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 20px 20px; }
+
+/* The commit sweep fills the button from the left, under its label. */
+.pd-confirm { position: relative; overflow: hidden; }
+.pd-confirm > * { position: relative; z-index: 1; }
+.pd-confirm::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.pd-confirm[data-committing='true'] { color: var(--on-accent); border-color: var(--accent); }
+.pd-confirm[data-committing='true'] .icon { color: inherit; }
+.pd-confirm[data-committing='true']::after {
+  animation: pd-sweep 280ms cubic-bezier(.55, 0, .45, 1) forwards;
+}
+
+.pd-dialog[open] { animation: pd-rise 300ms cubic-bezier(.2, .85, .25, 1); }
+.pd-dialog[open]::backdrop { animation: pd-fade 240ms ease; }
+.pd-dialog[data-closing='true'] { animation: pd-sink 180ms ease forwards; }
+
+@keyframes pd-rise { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+@keyframes pd-fade { from { opacity: 0; } }
+@keyframes pd-sink { to { opacity: 0; transform: translateY(6px) scale(.985); } }
+@keyframes pd-sweep { to { transform: scaleX(1); } }
+
+/*
+ * Section 9: reduced motion collapses to the *final* state, never a mid-state. The sweep's final
+ * state is a filled button, so it is filled outright rather than left unfilled -- the commit must
+ * still read as having happened.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .pd-dialog[open],
+  .pd-dialog[open]::backdrop,
+  .pd-dialog[data-closing='true'] { animation: none; }
+  .pd-confirm[data-committing='true']::after { animation: none; transform: scaleX(1); }
+}
+
+/*
+ * Printing. The sheet is the encoded capture, and for the length of the print it is the only thing
+ * on the page.
+ *
+ * It has to be styled here rather than inside an iframe: an image loaded as its own document prints
+ * at natural size and is clipped by the page box, which cut every capture off at the right edge.
+ * `width: 100%` against the page box is the whole fix -- the browser then scales it down to the
+ * paper and slices a long one across as many sheets as it needs.
+ */
+.pd-print-sheet { display: none; }
+
+@media print {
+  /* Everything the page normally shows, including any open dialog, stands down. */
+  body > *:not(.pd-print-sheet) { display: none !important; }
+
+  .pd-print-sheet {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+  }
+
+  /* The capture is the document, so the paper carries nothing of the interface's colour. */
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+
+  @page { margin: 10mm; }
+}

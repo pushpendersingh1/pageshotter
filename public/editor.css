@@ -1,0 +1,587 @@
+html, body { width: 100%; height: 100%; overflow: hidden; }
+body { display: flex; flex-direction: column; color: var(--ink); background: var(--surface); }
+button:disabled { cursor: not-allowed; opacity: .42; }
+
+/*
+ * Three tracks, the outer two equal, so the view cluster sits on the window's true centre no matter
+ * how long the page title is. `minmax(0, 1fr)` and not `1fr`: a long unbroken title in a bare `1fr`
+ * refuses to shrink and pushes the centre off centre.
+ */
+/*
+ * `position` and `z-index` are load-bearing, not decoration: `.editor-canvas` is positioned and
+ * comes after this in the DOM, so its children painted straight over the zoom menu. The menu was
+ * visible only when minimised, which is the one state where the bar already had a z-index.
+ */
+.editor-top { position: relative; z-index: 10; flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+.editor-identity { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.editor-mark { display: grid; flex: none; width: 52px; height: 52px; margin-left: -12px; padding: 0 0 0 12px; place-items: center; background: none; border: 0; }
+.editor-mark:hover { background: var(--surface-2); }
+.editor-mark-glyph { display: block; width: 26px; height: 26px; border-radius: 5px; }
+.top-rule { flex: none; width: 1px; height: 20px; background: var(--line); }
+/* Title and host share one baseline; the host is the only place the address appears in the chrome. */
+.editor-title { display: flex; min-width: 0; align-items: baseline; gap: 9px; }
+.editor-title strong { overflow: hidden; font: 600 14px/1.2 var(--ui); letter-spacing: -.005em; text-overflow: ellipsis; white-space: nowrap; }
+#host { flex: 0 1 auto; overflow: hidden; color: var(--ink-2); font: 500 11px/1 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+
+.editor-view { position: relative; display: flex; flex: none; align-items: center; gap: 4px; justify-self: center; }
+.top-icon { display: grid; flex: none; min-width: 30px; height: 30px; padding: 0 6px; place-items: center; color: var(--ink-2); background: none; border: 0; border-radius: 8px; }
+.top-icon:hover:not(:disabled) { color: var(--ink); background: var(--surface-2); }
+.top-icon .icon { width: 16px; height: 16px; }
+/* The zoom readout is a well so the two steppers read as one control rather than three buttons. */
+.zoom-well { display: flex; align-items: center; gap: 2px; padding: 2px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; }
+.zoom-well .top-icon { min-width: 24px; height: 24px; }
+.zoom-value { min-width: 50px; height: 24px; padding: 0 6px; color: var(--ink); background: none; border: 0; border-radius: 7px; font: 600 11px/1 var(--mono); }
+.zoom-value:hover { background: var(--surface); }
+
+.editor-actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.more-slot { position: relative; display: flex; }
+.menu-rule { display: block; height: 1px; margin: 4px 0; background: var(--line); }
+/*
+ * `.tool-flyout` opens upward, because it was written for the bottom tool dock. Both menus now hang
+ * off the top bar, so both have to be flipped -- left as they were they would have opened off the
+ * top of the window, which no test and no computed-style read would have reported.
+ */
+#more-menu, #zoom-menu { top: calc(100% + 8px); bottom: auto; }
+#more-menu { right: 0; left: auto; width: 214px; }
+#zoom-menu { left: 50%; transform: translateX(-50%); }
+#more-menu .danger { color: var(--accent); }
+
+/*
+ * 28px, mono, and it is the only place the output size is stated in the chrome -- the title used to
+ * carry it, which put a number that changes with every margin tweak next to a name that never does.
+ */
+.editor-status { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 28px; padding: 0 14px; border-top: 1px solid var(--line); color: var(--ink-2); font: 500 11px/1 var(--mono); }
+.editor-status .status-right { display: flex; min-width: 0; align-items: center; gap: 7px; }
+#status-selection { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#status-selection[data-selected='true'] { color: var(--ink); }
+.status-size, #status-selection { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; padding: 0 12px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); font: 600 12.5px/1 var(--ui); white-space: nowrap; transition: color 160ms ease, background 160ms ease, border-color 160ms ease, transform 60ms ease; }
+.btn:hover:not(:disabled) { background: var(--surface); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn.primary { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+/*
+ * Restated rather than inherited, and this is the third time this codebase has had to write that
+ * sentence -- see `result.css` on `.btn.primary` and `page-frame.css` on `.btn.danger`.
+ * `.btn:hover:not(:disabled)` is (0,3,0) and `.btn.primary` only (0,2,0), so the hover rule outranks
+ * it: hovering the Download button swapped its red for `--surface` and it read as a grey button.
+ * Any `.btn` variant or toggle that sets its own background needs its own hover rule.
+ */
+.btn.primary:hover:not(:disabled) { color: var(--on-accent); background: var(--accent); border-color: var(--accent); filter: brightness(1.08); }
+.btn .icon { width: 15px; height: 15px; }
+
+.editor-main { flex: 1 1 auto; display: grid; grid-template-columns: 264px minmax(0, 1fr) 264px; min-height: 0; }
+.editor-panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface); }
+.layers-panel { border-right: 1px solid var(--line); }
+.inspector-panel { border-left: 1px solid var(--line); }
+/*
+ * A head is a name and its toggles, nothing else (the tile, the sub line and
+ * the count were jargon). No hairline under it either -- the panels already have a vertical one
+ * each, and the content below carries its own padding. The heights still have to match, or the two
+ * heads' text sits at different y, which is visible straight across the window.
+ */
+.panel-head { flex: none; display: flex; align-items: center; justify-content: space-between; height: 48px; padding: 0 10px 6px 14px; }
+.panel-toggle { display: grid; width: 32px; height: 32px; padding: 0; place-items: center; color: var(--ink-2); background: none; border: 0; border-radius: 8px; }
+.panel-toggle:hover { color: var(--ink); background: var(--surface-2); }
+.panel-toggle .icon { width: 16px; height: 16px; }
+.panel-head-actions { display: flex; align-items: center; }
+/* Each toggle carries both glyphs; the collapse state below picks one. */
+.panel-toggle .expand { display: none; }
+.minimize-ui { flex: none; }
+.panel-pending { display: grid; gap: 8px; margin: 14px; padding: 18px 12px; justify-items: center; text-align: center; color: var(--ink-2); background: var(--surface-2); border: 1px dashed var(--line); border-radius: var(--r); font: 400 12px/1.45 var(--ui); }
+.panel-pending .icon { width: 20px; height: 20px; opacity: .7; }
+/*
+ * Pinned to the floor of the panel, full width with a hairline above it, rather than the inset card
+ * it used to be. It is the floor of the z-order by definition and it is the only row that is never
+ * draggable, deletable or hideable, so it reads as part of the panel's frame and not as one of the
+ * rows above it -- and an inset card cannot carry the separating hairline across the panel.
+ */
+.frame-row { flex: none; display: flex; align-items: center; gap: 9px; width: 100%; height: 40px; margin-top: auto; padding: 0 12px; color: var(--ink-2); text-align: left; background: var(--surface); border: 0; border-top: 1px solid var(--line); font: 500 12.5px/1 var(--ui); }
+/* Selected, so it takes the selection tint like any other selected row -- not a red border. */
+.frame-row[aria-pressed='true'] { color: var(--ink); background: var(--select-soft); }
+.frame-row[aria-pressed='true'] > .icon:not(.lock) { color: var(--select); }
+.frame-row:hover:not([aria-pressed='true']) { background: var(--surface-2); }
+.frame-row .icon { flex: none; width: 15px; height: 15px; }
+.frame-row .lock { width: 13px; height: 13px; }
+/* The capture's own pixels, so it is mono, and it pushes the lock to the edge. */
+.frame-size { margin-left: auto; color: var(--ink-2); font: 500 11px/1 var(--mono); }
+
+/*
+ * A row is `LAYER_ROW_HEIGHT` tall -- 30px -- with the name column at a fixed offset whatever the
+ * depth, which is why the indent is padding rather than a column. The row is inset 8px so its 6px
+ * radius has somewhere to sit; inside that, 8px of padding plus 16 per level, then a 12px chevron
+ * slot and a 24px type icon put every name 52px from the panel's left edge. Eye and lock sit against
+ * the row's right edge, at 212 and 234 in the 264px panel.
+ *
+ * 30 and 16 are `LAYER_ROW_HEIGHT` and `LAYER_INDENT` in `scene.ts`, because the drop-band
+ * arithmetic divides the height. Changing either here alone leaves every drag hit-testing the old
+ * row -- which is exactly why they are constants and not numbers in this file.
+ */
+.layers-list { flex: 1 1 auto; min-height: 0; padding: 6px 0; overflow: auto; }
+.layers-list:focus-visible { outline-offset: -2px; }
+.layer-row { display: grid; grid-template-columns: 12px 24px minmax(0, 1fr) 22px 22px; align-items: center; height: 30px; margin: 0 8px; padding-left: calc(8px + var(--depth, 0) * 16px); border-radius: 6px; color: var(--ink); font: 500 12.5px/1 var(--ui); cursor: default; user-select: none; }
+.layer-row:hover, .layer-row.is-hovered { background: var(--surface-2); }
+/* Selection is blue and the type icon goes with it; the red bar this replaced collided with a red annotation. */
+.layer-row.is-selected { color: var(--ink); background: var(--select-soft); }
+.layer-row.is-selected .row-type { color: var(--select); }
+.layer-row.is-hidden-layer .row-name, .layer-row.is-hidden-layer .row-type { opacity: .45; }
+.layer-row.is-dragging { opacity: .5; }
+/* Inset rather than a border, so an indicator never shifts the row it is drawn on. */
+/* Where a row will land is a selection-class marker, not something happening, so it is blue too. */
+.layer-row.drop-before { box-shadow: inset 0 2px 0 var(--select); }
+.layer-row.drop-after { box-shadow: inset 0 -2px 0 var(--select); }
+.layer-row.drop-into { box-shadow: inset 0 0 0 1px var(--select); }
+.layers-list.is-dragging-rows { cursor: grabbing; }
+.row-chevron, .row-eye, .row-lock { display: grid; width: 22px; height: 22px; padding: 0; place-items: center; color: var(--ink-2); background: none; border: 0; border-radius: 5px; }
+/* The slot is 12px wide on every row, so a group and a loose shape put their icon at the same x. */
+.row-chevron { width: 12px; }
+.row-chevron.is-empty { visibility: hidden; }
+.row-chevron .icon { width: 13px; height: 13px; transition: transform 120ms ease; }
+.row-chevron.is-open .icon { transform: rotate(90deg); }
+.row-type { display: grid; place-items: center; color: var(--ink-2); }
+.row-type .icon { width: 15px; height: 15px; }
+/* The row's line-height of 1 leaves no room below the baseline, and overflow: hidden clips g, j, p, y. */
+.row-name { overflow: hidden; padding-right: 6px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.row-rename { width: 100%; padding: 1px 3px; color: var(--ink); background: var(--surface); border: 1px solid var(--select); border-radius: 4px; font: 500 12.5px/1.2 var(--ui); }
+.row-eye .icon, .row-lock .icon { width: 14px; height: 14px; }
+/* Which eye shows is CSS keyed on `is-set`: setting `hidden` on an SVG is a no-op expando, so
+ * both drew at once. The inspector head reuses the rule rather than owning a second copy. */
+:is(.row-eye, #inspector-hide).is-set .eye-on, :is(.row-eye, #inspector-hide):not(.is-set) .eye-off { display: none; }
+/* Hidden until hover, and permanently visible once set, or the panel lies about the state. */
+.row-eye, .row-lock { visibility: hidden; }
+.layer-row:hover .row-eye, .layer-row:hover .row-lock, .row-eye.is-set, .row-lock.is-set { visibility: visible; }
+.row-eye.is-set, .row-lock.is-set { color: var(--accent); }
+.row-eye:hover, .row-lock:hover, .row-chevron:hover { color: var(--ink); background: var(--surface-2); }
+
+.inspector { flex: 1 1 auto; min-height: 0; overflow: auto; }
+/* The head is the panel's own 60px row, filled by the Inspector: type glyph, name, where it sits. */
+.panel-head-actions { gap: 2px; }
+.inspector-section { display: grid; gap: 16px; padding: 14px 16px 16px; border-bottom: 1px solid var(--line); }
+/* The eyebrow shares its line with the section's own menu, when it has one. */
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.section-menu { position: relative; display: flex; }
+.section-menu-button { display: grid; width: 22px; height: 22px; padding: 0; place-items: center; color: var(--ink-2); background: none; border: 0; border-radius: 6px; }
+.section-menu-button:hover, .section-menu-button[aria-expanded='true'] { color: var(--ink); background: var(--surface-2); }
+.section-menu-button .icon { width: 14px; height: 14px; }
+
+/* The control pattern: label and value share a baseline, the control is full width underneath. At
+ * 264px minus 32px of padding there is no room for a middle column, which is why the old two-column
+ * row wrapped its segmented controls. */
+.inspector-row { display: grid; gap: 8px; }
+.inspector-row .rowhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.inspector-row .rowlbl { color: var(--ink); font: 400 12.5px/1.3 var(--ui); }
+.inspector-row .rowlbl.scrub { cursor: ew-resize; touch-action: none; }
+.inspector-row .rowval { color: var(--ink-2); font: 500 11.5px/1.3 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: .02em; white-space: nowrap; }
+.inspector-row .rowval.is-mixed { font-family: var(--ui); }
+
+/* A native range at opacity 0 over a drawn track: the keyboard and the drag come free. */
+.rng { position: relative; height: 18px; }
+.rng-track, .rng-fill { position: absolute; top: 8px; height: 2px; border-radius: 2px; pointer-events: none; }
+.rng-track { right: 0; left: 0; background: var(--line); }
+.rng-fill { left: 0; background: var(--ink); }
+.rng-thumb { position: absolute; top: 3px; width: 12px; height: 12px; background: var(--ink); border-radius: 50%; pointer-events: none; }
+.rng input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; appearance: none; cursor: pointer; }
+.rng input::-webkit-slider-thumb { width: 12px; height: 12px; appearance: none; }
+.rng:has(input:focus-visible) .rng-thumb { outline: 2px solid var(--select); outline-offset: 2px; }
+
+/* Numbers live in a wrapper so the mono key and the unit sit inside the field's border. */
+.nums { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.num { display: flex; align-items: center; height: 30px; gap: 6px; padding: 0 8px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; cursor: text; }
+.num:focus-within { background: var(--surface); border-color: var(--select); }
+.num-k { flex: none; width: 14px; color: var(--ink-2); font: 500 10.5px/1 var(--mono); }
+.num-k.scrub { cursor: ew-resize; touch-action: none; }
+.num-u { flex: none; color: var(--ink-2); font: 500 10.5px/1 var(--mono); }
+.num input { flex: 1; min-width: 0; padding: 0; color: var(--ink); background: none; border: 0; font: 500 11.5px/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.num input:focus-visible { outline: none; }
+.num input::placeholder { color: var(--ink-2); }
+.num input::-webkit-outer-spin-button, .num input::-webkit-inner-spin-button { margin: 0; appearance: none; }
+
+.inspector-select, .inspector-text { width: 100%; min-width: 0; padding: 5px 7px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; font: 500 11.5px/1.2 var(--ui); }
+.inspector-select:focus-visible, .inspector-text:focus-visible { border-color: var(--select); }
+.inspector-link { width: max-content; padding: 3px 0; color: var(--accent); background: none; border: 0; font: 600 11.5px/1.2 var(--ui); }
+.inspector-link:hover { text-decoration: underline; }
+.inspector-note { margin: -6px 0 0; padding: 8px 10px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; font: 400 11.5px/1.45 var(--ui); }
+/* Facts, not controls: the Output rows state what the file will be, and nothing here is editable. */
+.fact { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.fact-k { color: var(--ink-2); font: 400 12.5px/1.3 var(--ui); }
+.mono-out { color: var(--ink); font: 500 11.5px/1.4 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+/* A switch is a label with its explanation on the left and a 30x18 track on the right. */
+.switch-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.switch-text { display: grid; min-width: 0; gap: 2px; }
+.switch-text strong { color: var(--ink); font: 400 12.5px/1.3 var(--ui); }
+.switch-text span { color: var(--ink-2); font: 400 11.5px/1.35 var(--ui); }
+.switch { position: relative; flex: none; width: 30px; height: 18px; }
+.switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.switch .track { position: absolute; inset: 0; background: var(--line); border-radius: 999px; transition: background .18s ease; }
+/* `* { box-sizing: border-box }` does not reach pseudo-elements, so the knob states its own. */
+.switch .track::after { content: ''; position: absolute; top: 2px; left: 2px; box-sizing: border-box; width: 14px; height: 14px; background: var(--knob); border-radius: 50%; box-shadow: 0 1px 2px rgb(26 26 26 / .22); transition: transform .2s cubic-bezier(.2, .85, .25, 1), background .18s; }
+.switch input:checked + .track { background: var(--ink); }
+.switch input:checked + .track::after { background: var(--surface); transform: translateX(12px); }
+.switch input:focus-visible + .track { outline: 2px solid var(--select); outline-offset: 2px; }
+
+/* The same segmented control the result page wears, at the inspector's narrower rhythm. */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; }
+.seg button { min-width: 0; height: 24px; padding: 0 3px; color: var(--ink-2); background: none; border: 0; border-radius: 6px; font: 500 11.5px/1 var(--mono); letter-spacing: .02em; white-space: nowrap; transition: background .16s, color .16s; }
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed='true'] { color: var(--surface); background: var(--ink); }
+.seg.seg-fit { grid-auto-columns: auto; }
+.seg.seg-fit button { padding-inline: 5px; }
+
+/* Swatches are native radios at opacity 0 over a fill, so arrow keys walk the palette. */
+.swatches { display: flex; flex-wrap: wrap; gap: 5px; }
+.swatch { position: relative; flex: none; width: 24px; height: 24px; }
+.swatch input { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; }
+.swatch .sw-fill { position: absolute; inset: 0; border-radius: 6px; box-shadow: inset 0 0 0 1px var(--swatch-ring); transition: box-shadow .16s; }
+.swatch input:checked + .sw-fill { box-shadow: inset 0 0 0 1px var(--swatch-ring), 0 0 0 2px var(--surface), 0 0 0 3px var(--ink); }
+.swatch input:focus-visible + .sw-fill { outline: 2px solid var(--select); outline-offset: 4px; }
+.sw-none .sw-fill { background: repeating-conic-gradient(var(--line) 0 25%, var(--surface) 0 50%) 0 0 / 12px 12px; }
+/* The custom well is the native colour input itself: it has to be the thing the click opens. */
+.swatch-input { width: 24px; height: 24px; padding: 0; background: var(--surface-2); border: 1px solid var(--swatch-ring); border-radius: 6px; }
+.swatch-input.is-on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--ink); }
+.swatch-input::-webkit-color-swatch-wrapper { padding: 0; }
+.swatch-input::-webkit-color-swatch { border: 0; border-radius: 5px; }
+/* The well holds the colour the picker will open on, which is not the same as the colour in use: a
+ * well painted red beside a selected red anchor read as a second, unselected red swatch. */
+.swatch-input:not(.is-on)::-webkit-color-swatch { background-color: var(--surface-2) !important; }
+
+/* The footer button: full width, bordered, and never a fill — solid red is kept for Download. */
+.inspector-wide { display: flex; align-items: center; justify-content: center; width: 100%; height: 34px; padding: 0 12px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font: 500 12.5px/1 var(--ui); }
+.inspector-wide:hover:not(:disabled) { background: var(--surface-2); }
+.inspector-wide:disabled { color: var(--ink-2); }
+
+/* The editor-defaults sheet: a left nav and a pane whose controls are the inspector's own,
+   so everything below is layout. Anything about a control belongs to the inspector's rules. */
+.dd {
+  width: min(860px, calc(100vw - 32px));
+  height: min(620px, calc(100vh - 32px));
+  padding: 0;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.dd[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; animation: sheet-rise .32s cubic-bezier(.2, .85, .25, 1); }
+.dd::backdrop, .defaults-confirm::backdrop { background: var(--scrim); }
+.dd-head { display: flex; align-items: center; gap: 16px; padding: 16px 12px 16px 22px; border-bottom: 1px solid var(--line); }
+.dd-htext { flex: 1; min-width: 0; }
+.dd h2, .defaults-confirm h2 { margin: 0; font: 650 15px/1.25 var(--ui); letter-spacing: -.01em; }
+.dd-head p, .defaults-confirm p { margin: 3px 0 0; color: var(--ink-2); font: 400 11.5px/1.45 var(--ui); }
+.dd-body { display: grid; grid-template-columns: 208px minmax(0, 1fr); min-height: 0; }
+.dd-nav { display: flex; flex-direction: column; gap: 1px; padding: 6px 10px 14px; border-right: 1px solid var(--line); overflow-y: auto; }
+.dd-nav .eyebrow { display: block; flex: none; padding: 14px 10px 8px; }
+.dd-nav-item { flex: none; height: 32px; padding: 0 10px; color: var(--ink); text-align: left; background: none; border: 0; border-radius: 8px; font: 500 12.5px/1 var(--ui); transition: background .16s; }
+.dd-nav-item:hover { background: var(--surface-2); }
+.dd-nav-item[aria-pressed='true'] { color: var(--select); background: var(--select-soft); }
+.dd-pane { min-width: 0; padding: 20px 24px 24px; overflow-y: auto; }
+.dd-h h3 { margin: 0; font: 650 14px/1.3 var(--ui); }
+.dd-h p { margin: 4px 0 0; color: var(--ink-2); font: 400 11.5px/1.5 var(--ui); }
+/* The sample, on a mini page: what a number in the pane is true of. Drawn in CSS, never a canvas. */
+.dd-preview { display: grid; box-sizing: border-box; height: 160px; margin: 14px 0 20px; place-items: center; background: var(--stage); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.dd-preview[data-background='none'] { background-image: linear-gradient(45deg, var(--line) 25%, transparent 25%), linear-gradient(-45deg, var(--line) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--line) 75%), linear-gradient(-45deg, transparent 75%, var(--line) 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; }
+.dd-paper { position: relative; display: block; width: 300px; height: 112px; background: #fff; border-radius: 8px; box-shadow: 0 1px 2px rgb(26 26 26 / .08), 0 8px 22px rgb(26 26 26 / .1); overflow: hidden; }
+.dd-bar { position: absolute; left: 22px; height: 7px; background: #e8eaee; border-radius: 4px; }
+.dd-mark { position: absolute; left: 34px; top: 24px; box-sizing: border-box; }
+.dd-sample { position: absolute; inset: 0; width: 100%; height: 100%; }
+.dd-mark[data-type='rectangle'], .dd-mark[data-type='ellipse'], .dd-mark[data-type='blur'] { width: 110px; height: 60px; }
+.dd-mark[data-type='ellipse'] { border-radius: 50%; }
+.dd-mark[data-type='highlight'] { width: 96px; height: 16px; top: 46px; border-radius: 2px; }
+/* A line or an arrow is an SVG the dialog draws; the mark only places it, centred on its own line. */
+.dd-mark[data-type='line'], .dd-mark[data-type='arrow'] { top: 50px; display: grid; height: 24px; align-items: center; }
+.dd-mark[data-type='text'], .dd-mark[data-type='emoji'] { top: 66px; width: 220px; line-height: 1.25; white-space: nowrap; }
+/* The frame's bar, when Present is on: the preview shows that there is one, not every pixel of it. */
+.dd-chrome { position: absolute; left: 0; top: 0; width: 100%; height: 14px; background: #edeef1; box-shadow: inset 0 -1px 0 rgb(26 26 26 / .08); }
+.dd-chrome[data-chrome='dark'] { background: #2b2c30; box-shadow: inset 0 -1px 0 rgb(255 255 255 / .1); }
+/* Two columns of the inspector's own rows: the section is the grid, so its rows are the cells and
+   its eyebrow spans them. The inspector draws one column in a 264px panel and knows nothing of this. */
+.dd-ctrls .inspector-section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px; align-items: start; padding: 0; border: 0; }
+.dd-ctrls .inspector-section > .eyebrow, .dd-ctrls .inspector-section > .section-head, .dd-ctrls .inspector-section > .inspector-note, .dd-ctrls .inspector-section > .inspector-wide { grid-column: 1 / -1; }
+.dd-foot { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-top: 1px solid var(--line); }
+.dd-foot-actions { display: flex; align-items: center; gap: 8px; }
+.dd-ghost { height: 32px; padding: 0 10px; color: var(--ink-2); background: none; border: 0; border-radius: 8px; font: 500 12.5px/1 var(--ui); transition: background .16s, color .16s; }
+.dd-ghost:hover { color: var(--ink); background: var(--surface-2); }
+.dd-foot p { margin: 0 0 0 auto; color: var(--ink-2); font: 500 11.5px/1.4 var(--ui); }
+.dd-foot p[data-state='problem'] { color: var(--accent); }
+.defaults-confirm { width: min(440px, calc(100vw - 32px)); padding: 0; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+.defaults-confirm form { display: grid; gap: 9px; padding: 20px; }
+.defaults-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.editor-action-alert { position: fixed; z-index: 30; right: 18px; bottom: 18px; display: flex; align-items: center; gap: 8px; max-width: min(420px, calc(100vw - 36px)); margin: 0; padding: 11px 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--accent); border-radius: 9px; box-shadow: var(--shadow); font: 600 12.5px/1.45 var(--ui); animation: toast-rise .24s cubic-bezier(.2, .85, .25, 1) both; }
+/* A confirmation is not a warning: it keeps the hairline every other surface uses and says so with
+ * a glyph instead, which leaves --accent meaning "something went wrong". */
+.editor-action-alert[data-kind='success'] { border-color: var(--line); }
+/* `--select`, not a green. The design language allows exactly one second hue and blue is
+ * already spending it; a third would be a third. */
+.editor-action-alert[data-kind='success'] .icon { flex: none; width: 16px; height: 16px; color: var(--select); }
+.editor-action-alert:not([data-kind='success']) .icon { display: none; }
+/* A dialog rises 14px over .32s. `tokens.css` turns it off under reduced
+   motion with an `!important` blanket that loads first, so nothing here needs to repeat that. */
+@keyframes sheet-rise { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes toast-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .editor-action-alert { animation: none; } }
+
+.editor-canvas { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--stage); }
+/* The checkerboard marks transparency, so it shows only when the background is `none`. */
+.editor-canvas.transparent-ground { background-image: linear-gradient(45deg, var(--line) 25%, transparent 25%), linear-gradient(-45deg, var(--line) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--line) 75%), linear-gradient(-45deg, transparent 75%, var(--line) 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; }
+.canvas-scroll { position: absolute; inset: 0; overflow: auto; }
+.canvas-space { min-width: 100%; min-height: 100%; }
+.stage-host { position: absolute; inset: 0 13px 13px 0; z-index: 1; overflow: hidden; }
+.stage-host canvas { display: block; }
+/* The export area is marked by the design language's shadow, never by an accent border.
+   A box-shadow paints only outside its box, so the checkerboard of a transparent export shows through. */
+.export-sheet { position: absolute; top: 0; left: 0; pointer-events: none; box-shadow: var(--shot-shadow); }
+/* The canvas cursor says what a press will do. Native keywords only, so nothing is fetched
+   or packaged. Konva sets a handle's resize or rotate cursor inline on its own content, which wins
+   while the pointer is on a handle. The pan rules come last, so a held Space beats any tool. */
+/* Move wears the dock's own Move glyph (Lucide `mouse-pointer-2`, ISC), so the cursor
+   matches the tool. A cursor image cannot read a
+   CSS variable, so its two colours are fixed: a dark body with a white edge, legible on any ground.
+   Packaged as a data URI, never fetched; `default` is the fallback. The hotspot is the arrow's tip. */
+.stage-host { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z' fill='%231a1a1a' stroke='%23ffffff' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 4 4, default; }
+.stage-host:is([data-tool='rectangle'], [data-tool='ellipse'], [data-tool='arrow'], [data-tool='line'], [data-tool='blur'], [data-tool='highlight'], [data-tool='emoji'], [data-tool='counter'], [data-tool='magnifier']) { cursor: crosshair; }
+.stage-host:is([data-tool='freehand'], [data-tool='marker']) { cursor: crosshair; }
+.stage-host[data-tool='text'] { cursor: text; }
+.stage-host[data-tool='hand'], .stage-host[data-pan='ready'] { cursor: grab; }
+.stage-host[data-pan='dragging'] { cursor: grabbing; }
+.text-editor { position: absolute; z-index: 7; margin: 0; padding: 0; overflow: hidden; color: inherit; background: none; border: 0; outline: 0; resize: none; }
+
+/* Files dragged over the canvas: a warm glow, marching edges and a bobbing card saying where they go. */
+.drop-zone { position: absolute; z-index: 9; inset: 12px; display: grid; place-items: center; pointer-events: none; border-radius: 6px; background: linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x, linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x, linear-gradient(0deg, var(--accent) 50%, transparent 0) repeat-y, linear-gradient(0deg, var(--accent) 50%, transparent 0) repeat-y, radial-gradient(circle at 50% 55%, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 5%, transparent) 70%); background-size: 16px 2px, 16px 2px, 2px 16px, 2px 16px, auto; background-position: 0 0, 0 100%, 0 0, 100% 0, 0 0; animation: drop-in .18s ease-out both, drop-march .7s linear infinite; }
+.drop-zone[hidden] { display: none; }
+.drop-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 30px 18px; color: var(--ink); background: var(--surface); border: 1px solid var(--accent); border-radius: 14px; box-shadow: var(--shadow), 0 0 42px color-mix(in srgb, var(--accent) 35%, transparent); font: 500 12px/1.4 var(--ui); animation: drop-bob 1.4s ease-in-out infinite; }
+.drop-card strong { font-size: 15px; font-weight: 700; }
+.drop-card > span:last-child { opacity: .7; }
+.drop-icon { width: 34px; height: 34px; color: var(--accent); }
+.drop-flame { position: absolute; top: -16px; right: -12px; font-size: 26px; transform-origin: 50% 90%; animation: drop-flicker .5s ease-in-out infinite alternate; }
+@keyframes drop-in { from { opacity: 0; transform: scale(.98); } }
+@keyframes drop-march { to { background-position: 16px 0, -16px 100%, 0 -16px, 100% 16px, 0 0; } }
+@keyframes drop-bob { 50% { transform: translateY(-6px) rotate(-1deg); } }
+@keyframes drop-flicker { from { transform: rotate(-9deg) scale(.94); } to { transform: rotate(7deg) scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .drop-zone, .drop-card, .drop-flame { animation: none; } }
+.editor-error { position: absolute; z-index: 8; top: 50%; left: 50%; width: min(420px, calc(100% - 40px)); margin: 0; padding: 18px; transform: translate(-50%, -50%); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); font: 500 13px/1.5 var(--ui); }
+
+/*
+ * `--float`, not `--shadow`. The dock hovers over the stage rather than sitting on a surface, and
+ * `--shadow` is the card weight -- under it the dock read as a card that had come loose.
+ */
+.tool-dock { position: absolute; z-index: 6; left: 50%; bottom: 16px; display: flex; align-items: center; gap: 2px; padding: 5px; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--float); }
+.tool-cluster { display: flex; align-items: center; gap: 2px; }
+.grouped-tool { position: relative; display: inline-flex; gap: 2px; }
+/* Every tool is the same 36px square whether or not it carries a caret, so the dock reads as one
+ * row of equal targets; the caret is a narrower control beside its tool, not half of it. */
+.tool-button, .tool-caret { display: grid; height: 36px; padding: 0; place-items: center; color: var(--ink-2); background: transparent; border: 0; border-radius: 8px; }
+.tool-button, .grouped-tool .group-main { width: 36px; }
+.tool-caret { width: 20px; }
+.tool-button:hover:not(:disabled), .tool-caret:hover { color: var(--ink); background: var(--surface-2); }
+/* The active tool is `--ink`-filled: it is a chosen mode, not the action in flight. */
+.tool-button[aria-pressed='true'] { color: var(--surface); background: var(--ink); }
+/* The selected tool keeps its accent under the pointer. Without this the hover rule above outranks
+ * it (0,3,0 against 0,2,0) and every click looked like it had done nothing, because the pointer is
+ * still on the button it just pressed. */
+.tool-button[aria-pressed='true']:hover:not(:disabled) { color: var(--surface); background: var(--ink); }
+/*
+ * The tool's name and its key, on the dock's own dressing rather than the browser's -- Figma shows
+ * both, and a dock of icon-only buttons is unreadable without the key beside the name. CSS only: the
+ * delay and the fade are a transition, so no script runs on hover.
+ */
+.tool-button, .tool-caret { position: relative; }
+/*
+ * An `--ink` pill, not a bordered `--surface` one: the tooltip sits over the capture, and a light
+ * card on a light screenshot disappeared into it. Inverting it also stops the tooltip reading as
+ * another piece of chrome.
+ *
+ * `data-tip` is `Name (Key)` -- the key is in the text rather than a separate mono cap. A
+ * cap needs a second element inside the pill, and a pseudo-element cannot hold one,
+ * so it would mean giving every dock button a child and touching all three places that write the
+ * label. Deliberately skipped, not forgotten.
+ */
+.tool-button[data-tip]::after, .tool-caret[data-tip]::after { content: attr(data-tip); position: absolute; z-index: 2; bottom: calc(100% + 10px); left: 50%; padding: 6px 9px; transform: translateX(-50%); color: var(--surface); background: var(--ink); border-radius: 7px; box-shadow: var(--float); font: 500 11.5px/1 var(--ui); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 90ms ease 350ms; }
+/* On focus as well as hover: keyboard users got no tooltip at all, on a dock of icon-only buttons. */
+.tool-button[data-tip]:is(:hover, :focus-visible)::after, .tool-caret[data-tip]:is(:hover, :focus-visible)::after { opacity: 1; }
+.tool-button .icon { width: 17px; height: 17px; }
+.tool-caret .icon { width: 12px; height: 12px; }
+.dock-rule { flex: none; width: 1px; height: 20px; margin: 0 5px; background: var(--line); }
+/*
+ * Sized by its longest row rather than by a guess. At a fixed 174px "Keyboard shortcuts" wrapped
+ * onto two lines against a `line-height: 1`, which is what put a cramped two-line row in the zoom
+ * menu. `min-width` keeps the short menus from looking pinched; `max-width` stops a long label from
+ * running away.
+ */
+.tool-flyout { position: absolute; left: 0; bottom: calc(100% + 10px); width: max-content; min-width: 178px; max-width: 280px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+/*
+ * Flex, not a four-column grid.
+ *
+ * The grid was `18px minmax(0,1fr) auto 16px` -- a leading icon column and a trailing check column
+ * -- and it assumed every row carries both. Neither menu does. The zoom menu has no icons at all,
+ * so every label sat indented 26px behind an empty column, and only one of its eight rows has a
+ * check, so the other seven reserved 16px of dead space to the right of their keycap. The overflow
+ * menu had the same gap for the same reason, and it was patched there with an override -- which
+ * fixed one menu and left this one, the actual reported fault, untouched.
+ *
+ * An empty *explicit* grid track still takes its width; a missing flex child takes nothing. So the
+ * rows of any one menu line up by construction, whatever that menu happens to contain, and a future
+ * menu needs no override.
+ */
+/* Opens downward and to the left, because it hangs off the panel's right edge. It has to come after
+ * `.tool-flyout`, which sets `left: 0` at the same specificity: written above it, this lost on
+ * source order and the menu opened off the side of the window. */
+/* `z-index`, which the dock's flyouts never needed: the swatch radios below this one carry
+ * `z-index: 2` to sit over their fills, and that put them above a menu with `z-index: auto`. The
+ * menu drew, and the palette drew straight through it. */
+.section-flyout { z-index: 5; top: calc(100% + 6px); right: 0; bottom: auto; left: auto; min-width: 214px; }
+.tool-flyout > button { display: flex; width: 100%; align-items: center; gap: 9px; min-height: 32px; padding: 0 9px; color: var(--ink); text-align: left; background: none; border: 0; border-radius: 7px; font: 500 12.5px/1.25 var(--ui); white-space: nowrap; }
+/* The label takes the slack, so keycaps and check marks land on one right edge. */
+.tool-flyout > button > span:not(.keys-caps) { flex: 1 1 auto; }
+.tool-flyout > button:hover { background: var(--surface-2); }
+/* `flex: none` on both tails: as flex children they would otherwise be shrunk by a long label. */
+.tool-flyout .icon { flex: none; width: 16px; height: 16px; }
+/*
+ * A keycap, not loose mono text: the shape the drawn modifier glyphs sit in.
+ */
+.tool-flyout .keys-caps { flex: none; }
+.tool-flyout .kbd { min-width: 19px; height: 19px; padding: 0 4px; color: var(--ink-2); border-radius: 5px; font: 600 10.5px/1 var(--mono); }
+.tool-flyout .kbd-glyph svg { width: 11px; height: 11px; }
+.tool-flyout [aria-checked='false'] .check { visibility: hidden; }
+/* The zoom menu wears the flyout's dressing but has no icon column: its entries are values, not
+   tools. It hangs off the pill's right edge, because the pill lives at the canvas's right. */
+.zoom-menu { left: auto; right: 0; width: 194px; }
+.zoom-menu > button { grid-template-columns: minmax(0, 1fr) auto 16px; }
+/* The emoji picker wears the flyout's dressing: a search field over labelled eight-column grids,
+   centred on its dock button. */
+.emoji-slot { position: relative; display: inline-flex; }
+.emoji-picker { position: absolute; left: 50%; bottom: calc(100% + 10px); width: 300px; max-width: calc(100vw - 32px); max-height: 340px; overflow-y: auto; padding: 8px; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+.emoji-search { box-sizing: border-box; width: 100%; margin: 0 0 2px; padding: 7px 9px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; font: 500 12.5px/1.2 var(--ui); }
+.emoji-label { margin: 10px 2px 4px; color: var(--ink-2); font: 600 10.5px/1 var(--ui); letter-spacing: 0.06em; text-transform: uppercase; }
+.emoji-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 2px; }
+.emoji-choice { display: grid; aspect-ratio: 1; padding: 0; place-items: center; background: none; border: 0; border-radius: 7px; font-size: 20px; line-height: 1; }
+.emoji-choice:hover, .emoji-choice:focus-visible { background: var(--surface-2); }
+.emoji-empty { margin: 10px 2px 4px; color: var(--ink-2); font: 500 12.5px/1.4 var(--ui); }
+
+/* The ? shortcuts sheet: a native modal dialog, three columns with
+ * hairline rows, one drawn keycap per key, and a footer for the gesture modifiers. */
+.keys-dialog {
+  width: min(780px, calc(100vw - 32px));
+  max-height: min(820px, calc(100vh - 32px));
+  padding: 0;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.keys-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; animation: sheet-rise .32s cubic-bezier(.2, .85, .25, 1); }
+.keys-dialog::backdrop { background: var(--scrim); }
+.keys-head { display: flex; align-items: center; gap: 14px; padding: 16px 12px 16px 20px; border-bottom: 1px solid var(--line); }
+.keys-htext { flex: 1; min-width: 0; }
+.keys-head h2 { margin: 0; font: 650 15px/1.25 var(--ui); letter-spacing: -.01em; }
+.keys-head p { margin: 3px 0 0; color: var(--ink-2); font: 400 11.5px/1.45 var(--ui); }
+.keys-platform { flex: none; }
+.keys-filter { display: flex; flex: none; align-items: center; width: 150px; height: 32px; padding: 0 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; transition: border-color .16s, background .16s; }
+.keys-filter:hover { border-color: var(--warm); }
+.keys-filter:focus-within { background: var(--surface); border-color: var(--select); }
+.keys-filter input { width: 100%; min-width: 0; padding: 0; color: var(--ink); background: none; border: 0; font: 500 12.5px/1 var(--ui); }
+.keys-filter input:focus-visible { outline: none; }
+.keys-filter input::-webkit-search-cancel-button { display: none; }
+.keys-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 26px; align-items: start; padding: 16px 20px 20px; overflow-y: auto; }
+.keys-group > .eyebrow { display: block; margin: 0; padding-bottom: 9px; }
+.keys-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 31px; border-top: 1px solid var(--line); }
+.keys-group .keys-row:last-child { border-bottom: 1px solid var(--line); }
+.keys-label { min-width: 0; overflow: hidden; font: 500 12.5px/1 var(--ui); white-space: nowrap; text-overflow: ellipsis; }
+.keys-caps { display: flex; flex: none; align-items: center; gap: 3px; }
+.keys-text { color: var(--ink-2); font: 500 11.5px/1 var(--ui); white-space: nowrap; }
+/* `--surface-2`, not `--surface`: a cap drawn in the sheet's own colour leans entirely on a hairline
+   that is 1.3:1 against it in dark, and the key stops reading as a key. */
+.kbd { display: inline-flex; min-width: 21px; height: 21px; padding: 0 5px; align-items: center; justify-content: center; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; font: 500 11px/1 var(--mono); white-space: nowrap; }
+.kbd-word { padding: 0 6px; font-family: var(--ui); }
+.kbd-glyph svg { display: block; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.keys-empty { display: grid; grid-column: 1 / -1; align-self: stretch; place-items: center; margin: 0; padding: 26px 12px; color: var(--ink-2); background: var(--surface-2); border: 1px dashed var(--line); border-radius: 10px; font: 500 12.5px/1.4 var(--ui); text-align: center; }
+.keys-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 20px; border-top: 1px solid var(--line); color: var(--ink-2); font: 500 11.5px/1 var(--ui); }
+.keys-gestures, .keys-anywhere { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.keys-gesture { display: inline-flex; align-items: center; gap: 5px; }
+.keys-anywhere { flex: none; gap: 5px; }
+@media (max-width: 720px) {
+  .keys-grid { grid-template-columns: minmax(0, 1fr); }
+  .keys-head { flex-wrap: wrap; }
+}
+
+.editor-zoom { position: absolute; z-index: 6; right: 20px; bottom: 20px; display: flex; align-items: center; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow); }
+.editor-zoom > button { display: grid; min-width: 32px; height: 32px; padding: 0 8px; place-items: center; color: var(--ink-2); background: none; border: 0; border-radius: 999px; }
+.editor-zoom > button:hover { color: var(--ink); background: var(--surface-2); }
+.editor-zoom > button .icon { width: 14px; height: 14px; }
+.editor-zoom .zoom-value { min-width: 48px; font: 600 11px/1 var(--mono); }
+/* The ? button wears the same cap as the sheet's rows, which says which key opens it.
+ * The ? button shares the pill with the zoom controls, separated by a dock rule, so the shortcut
+ * overlay has a visible trigger on the UI and does not live only behind the keyboard. */
+.editor-zoom .dock-rule { margin: 0 3px; }
+#shortcut-help .kbd { min-width: 19px; height: 19px; padding: 0 4px; border-radius: 5px; font: 600 10.5px/1 var(--mono); }
+
+.editor-main.layers-collapsed { grid-template-columns: 36px minmax(0, 1fr) 264px; }
+.editor-main.inspector-collapsed { grid-template-columns: 264px minmax(0, 1fr) 36px; }
+.editor-main.layers-collapsed.inspector-collapsed { grid-template-columns: 36px minmax(0, 1fr) 36px; }
+.editor-main.layers-collapsed .layers-panel > :not(.panel-head), .editor-main.inspector-collapsed .inspector-panel > :not(.panel-head) { display: none; }
+/* `.head-part` too: the inspector head carries two object actions beside its name. */
+.editor-main.layers-collapsed .layers-panel :is(.eyebrow, .head-part), .editor-main.inspector-collapsed .inspector-panel :is(.eyebrow, .head-part) { display: none; }
+/* Scoped to the collapsed panel's own head. Unscoped, collapsing either panel centred both heads, which
+   moved the other panel's toggle away from its edge. */
+.editor-main.layers-collapsed .layers-panel .panel-head, .editor-main.inspector-collapsed .inspector-panel .panel-head { padding: 0 2px; justify-content: center; }
+.editor-main.layers-collapsed .layers-panel .panel-toggle .collapse, .editor-main.inspector-collapsed .inspector-panel .panel-toggle .collapse { display: none; }
+.editor-main.layers-collapsed .layers-panel .panel-toggle .expand, .editor-main.inspector-collapsed .inspector-panel .panel-toggle .expand { display: block; }
+
+/*
+ * Minimised, the bar becomes three floating pills over the stage. The view cluster had to be added
+ * here explicitly: `pointer-events` is none on the bar and re-enabled per pill, so a new cluster
+ * that is not listed below is visible and dead -- the same shape of fault as the 36px column the
+ * comment further down records.
+ */
+.ui-minimized .editor-top { position: absolute; z-index: 9; top: 12px; left: 12px; right: 12px; display: flex; height: auto; padding: 0; border: 0; pointer-events: none; }
+.ui-minimized .editor-identity, .ui-minimized .editor-view, .ui-minimized .editor-actions { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 5px 7px; pointer-events: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow); }
+.ui-minimized .editor-view { margin: 0 auto; gap: 4px; }
+.ui-minimized .editor-mark { width: 40px; height: 40px; margin: 0; padding: 0; border-radius: 999px; }
+.ui-minimized .top-rule { display: none; }
+.ui-minimized .editor-status { display: none; }
+.ui-minimized .editor-identity { max-width: min(52%, 520px); }
+.ui-minimized .editor-actions { margin-left: auto; }
+.ui-minimized .editor-mark-glyph { width: 22px; height: 22px; }
+.ui-minimized .editor-title { justify-content: flex-start; }
+/* Minimise hides both panels, so the canvas is the grid's only child and must get the one column.
+   Each collapsed combination is named because `.layers-collapsed.inspector-collapsed` outranks a bare
+   `.ui-minimized .editor-main`, which left the canvas in a 36px first column: a blank screen with both
+   panels collapsed and the interface minimised. */
+.ui-minimized .editor-main,
+.ui-minimized .editor-main.layers-collapsed,
+.ui-minimized .editor-main.inspector-collapsed,
+.ui-minimized .editor-main.layers-collapsed.inspector-collapsed { grid-template-columns: minmax(0, 1fr); }
+.ui-minimized .editor-panel { display: none; }
+
+@media (max-width: 900px) {
+  .editor-main { grid-template-columns: 36px minmax(0, 1fr) 36px; }
+  .editor-panel > :not(.panel-head), .editor-panel :is(.eyebrow, .head-part) { display: none; }
+  .panel-head { padding: 0 2px; justify-content: center; }
+  .editor-title span { display: none; }
+}
+@media (max-width: 760px) {
+  .editor-top { gap: 8px; padding: 8px 10px; }
+  .editor-title { display: none; }
+  .editor-actions { margin-left: auto; }
+  .btn { padding: 0 9px; }
+  .btn .button-label { display: none; }
+  .editor-main { grid-template-columns: minmax(0, 1fr); }
+  .editor-panel { display: none; }
+  .tool-dock { bottom: 14px; max-width: calc(100% - 20px); }
+  .tool-button { width: 34px; }
+  .dock-rule { margin: 0 3px; }
+  .editor-zoom { right: 12px; bottom: 68px; }
+  .dd-body { grid-template-columns: minmax(0, 1fr); }
+  .dd-nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); }
+  .dd-nav .eyebrow { width: 100%; padding: 8px 4px 4px; }
+  .dd-ctrls .inspector-section { grid-template-columns: minmax(0, 1fr); }
+  .dd-head { padding: 14px; }
+  .dd-pane { padding: 14px; }
+  .dd-foot { align-items: stretch; flex-direction: column; padding: 12px 14px; }
+  .dd-foot p { margin: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn { transition: none; }
+  .tool-button[data-tip]::after, .tool-caret[data-tip]::after { transition: none; }
+}
