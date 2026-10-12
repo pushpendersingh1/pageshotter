@@ -34,6 +34,6 @@
     "node": ">=22"
   },
   "dependencies": {
-    "konva": "10.3.3"
+    "konva": "10.7.1"
   }
 }
