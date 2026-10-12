@@ -1,0 +1,29 @@
+name: Feature idea
+description: Something PageShotter could do, or do better.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        PageShotter stays local and minimal: no network requests, no accounts, no rules written
+        for one particular website, and no permissions beyond what a capture needs. Ideas that
+        need any of those are out of scope, but the problem behind them may not be, so describe
+        the problem first. Open-ended ideas also fit in
+        [Discussions](https://github.com/pushpendersingh1/pageshotter/discussions).
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: How you imagine it working. Rough is fine.
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do now
+      description: Any workaround you use today.

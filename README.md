@@ -101,7 +101,8 @@ tests/          Vitest unit tests (plain Node, no DOM) and the fixture corpus
 ## Contributing
 
 The most useful report is a public page that captures wrong: [open an issue](../../issues) with
-its address, what you expected and what you got. Feature ideas are welcome there too. For a pull request, keep it to
+its address, what you expected and what you got. Questions and ideas go in
+[Discussions](../../discussions). For a pull request, keep it to
 one change, run `npm run verify`, and read [`AGENTS.md`](AGENTS.md) first: a change that adds a
 permission, sends anything off the device or special-cases a website will not be merged. If a change
 affects what a capture looks like, say which fixtures you checked by hand.
