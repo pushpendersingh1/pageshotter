@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { appendFile, cp, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -57,7 +58,12 @@ it('re-prepares public/ assets while watching', async () => {
       }),
     ).toBe(true)
   } finally {
-    watcher?.kill()
+    // Wait for the watcher to exit: a write still in flight makes the rm below fail with ENOTEMPTY.
+    if (watcher && watcher.exitCode === null && watcher.signalCode === null) {
+      const exited = once(watcher, 'exit')
+      watcher.kill()
+      await exited
+    }
     await rm(dir, { recursive: true, force: true })
   }
 }, 20_000)
