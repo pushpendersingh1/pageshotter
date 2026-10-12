@@ -7,6 +7,8 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+        # Majors get their own PR so one breaking upgrade cannot block the safe ones.
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule:
