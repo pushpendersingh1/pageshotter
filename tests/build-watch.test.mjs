@@ -58,12 +58,13 @@ it('re-prepares public/ assets while watching', async () => {
       }),
     ).toBe(true)
   } finally {
-    // Wait for the watcher to exit: a write still in flight makes the rm below fail with ENOTEMPTY.
+    // Wait for the watcher to exit. esbuild's service process can outlive it by a moment and still
+    // be writing dist/, so the rm below also retries on ENOTEMPTY.
     if (watcher && watcher.exitCode === null && watcher.signalCode === null) {
       const exited = once(watcher, 'exit')
       watcher.kill()
       await exited
     }
-    await rm(dir, { recursive: true, force: true })
+    await rm(dir, { recursive: true, force: true, maxRetries: 10 })
   }
 }, 20_000)
