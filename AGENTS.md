@@ -6,7 +6,7 @@ anything.
 ## Commands
 
 ```bash
-npm run verify     # lint + typecheck + test + build — run before opening a pull request
+npm run verify     # lint + typecheck + test + page checks + build — run before opening a pull request
 npm test           # vitest, pure functions only
 npm run build      # esbuild → dist/ (unpacked extension, load this in Chrome)
 npm run dev        # rebuild dist/ on every change
