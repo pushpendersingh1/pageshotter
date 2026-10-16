@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import browsers from '../src/shared/browsers.json'
 import {
   estimatedSegmentCount,
   fitsOneCanvas,
+  fitsSingleImage,
   maxTiledImageWidth,
   nextScrollY,
   sectionLimitCssHeight,
@@ -107,5 +109,35 @@ describe('singleImageLimitMessage', () => {
 
   it('names the area limit when neither side is over the per-axis limit', () => {
     expect(singleImageLimitMessage(8_000, 40_000)).toMatch(/pixels in total/)
+  })
+})
+
+/*
+ * Every browser's measured canvas runs through the same planning, so a profile whose limits were
+ * mistyped -- or a planner that quietly went back to Chrome's constants -- shows up here.
+ */
+describe.each(Object.entries(browsers))('canvas limits for %s', (_, profile) => {
+  const { maxDimension, maxPixels } = profile.canvas
+  const limits = { maxDimension, maxPixels, imposedBy: 'canvas' as const }
+
+  it('sizes a tile to the area budget, and a short one to the axis', () => {
+    expect(maxTiledImageWidth(8_192, profile.canvas)).toBe(Math.min(maxDimension, Math.floor(maxPixels / 8_192)))
+    expect(maxTiledImageWidth(1_000, profile.canvas)).toBe(maxDimension)
+    expect(maxTiledImageWidth(8_192, profile.canvas) * 8_192).toBeLessThanOrEqual(maxPixels)
+  })
+
+  it('takes an image exactly at the limits and refuses one pixel past them', () => {
+    const height = Math.floor(maxPixels / maxDimension)
+    expect(fitsSingleImage(maxDimension, height, limits)).toBe(true)
+    expect(fitsSingleImage(maxDimension, height + 1, limits)).toBe(false)
+    expect(fitsSingleImage(maxDimension + 1, 1, limits)).toBe(false)
+  })
+})
+
+describe('the measured limits', () => {
+  it('give Firefox nearly twice the area Chrome and Edge have, on the same axis', () => {
+    expect(browsers.chrome.canvas).toEqual({ maxDimension: 65_535, maxPixels: 2 ** 28 })
+    expect(browsers.edge.canvas).toEqual(browsers.chrome.canvas)
+    expect(browsers.firefox.canvas).toEqual({ maxDimension: 65_535, maxPixels: 2 ** 29 - 2 ** 18 })
   })
 })

@@ -7,7 +7,11 @@
     "pinHint": "Chrome hides new extensions behind the puzzle-piece icon in the toolbar. Click it, then the pin beside PageShotter, to keep the button where you can reach it.",
     "extensionsPageOpenable": true,
     "detailsLabel": "Details",
-    "fileAccessRemedy": "Open chrome://extensions, click Details on PageShotter, and turn on \"Allow access to file URLs\"."
+    "fileAccessRemedy": "Open chrome://extensions, click Details on PageShotter, and turn on \"Allow access to file URLs\".",
+    "canvas": {
+      "maxDimension": 65535,
+      "maxPixels": 268435456
+    }
   },
   "edge": {
     "name": "Edge",
@@ -17,7 +21,11 @@
     "pinHint": "Edge hides new extensions behind the puzzle-piece icon in the toolbar. Click it, then the eye icon beside PageShotter, to keep the button where you can reach it.",
     "extensionsPageOpenable": true,
     "detailsLabel": "Details",
-    "fileAccessRemedy": "Open edge://extensions, click Details on PageShotter, and turn on \"Allow access to file URLs\"."
+    "fileAccessRemedy": "Open edge://extensions, click Details on PageShotter, and turn on \"Allow access to file URLs\".",
+    "canvas": {
+      "maxDimension": 65535,
+      "maxPixels": 268435456
+    }
   },
   "firefox": {
     "name": "Firefox",
@@ -27,6 +35,10 @@
     "pinHint": "Firefox keeps new extensions behind the puzzle-piece icon in the toolbar. Click it, then the gear beside PageShotter, and choose Pin to Toolbar to keep the button where you can reach it.",
     "extensionsPageOpenable": false,
     "detailsLabel": "Manage",
-    "fileAccessRemedy": null
+    "fileAccessRemedy": null,
+    "canvas": {
+      "maxDimension": 65535,
+      "maxPixels": 536608768
+    }
   }
 }

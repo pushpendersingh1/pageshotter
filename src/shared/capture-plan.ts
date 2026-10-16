@@ -1,4 +1,4 @@
-import { BROWSER } from './browser'
+import { BROWSER, type CanvasLimits } from './browser'
 import { PageShotterError } from './errors'
 import {
   flattenParts,
@@ -10,10 +10,10 @@ import {
 
 export const CAPTURE_LIMITS = {
   maxSegments: 200,
-  /** Chrome's per-axis canvas limit. */
-  maxCanvasDimension: 65_535,
-  /** Chrome's total canvas area limit (2^28 pixels). */
-  maxCanvasPixels: 268_435_456,
+  /** The browser's per-axis canvas limit; see `BrowserProfile.canvas` for how it was measured. */
+  maxCanvasDimension: BROWSER.canvas.maxDimension,
+  /** The browser's total canvas area limit: 2^28 px in Chrome, nearly twice that in Firefox. */
+  maxCanvasPixels: BROWSER.canvas.maxPixels,
   /**
    * WebP's own container limit, and the reason WebP is not simply another MIME string.
    *
@@ -112,7 +112,7 @@ export function fitsSingleImage(
   )
 }
 
-/** Whether an image of this size can exist as one Chrome canvas, and therefore as one PNG or JPEG. */
+/** Whether an image of this size can exist as one canvas, and therefore as one PNG or JPEG. */
 export function fitsOneCanvas(width: number, height: number): boolean {
   return fitsSingleImage(width, height, CANVAS_IMAGE_LIMITS)
 }
@@ -122,14 +122,11 @@ export function fitsOneCanvas(width: number, height: number): boolean {
  * the canvas limit constrains the *tile*, not the whole image — and because the area limit divides
  * by the tile height rather than the full height, it binds far sooner than the per-axis limit does.
  */
-export function maxTiledImageWidth(tileHeight: number): number {
+export function maxTiledImageWidth(tileHeight: number, canvas: CanvasLimits = BROWSER.canvas): number {
   if (tileHeight <= 0) {
     throw new PageShotterError('INVALID_PAGE_SIZE', `${BROWSER.name} reported an invalid page size.`)
   }
-  return Math.min(
-    CAPTURE_LIMITS.maxCanvasDimension,
-    Math.floor(CAPTURE_LIMITS.maxCanvasPixels / tileHeight),
-  )
+  return Math.min(canvas.maxDimension, Math.floor(canvas.maxPixels / tileHeight))
 }
 
 /**

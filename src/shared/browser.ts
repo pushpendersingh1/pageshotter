@@ -41,6 +41,28 @@ export interface BrowserProfile {
    * anyone to -- and an extension may not open `about:addons` to look.
    */
   fileAccessRemedy: string | null
+  /**
+   * The largest canvas the browser will draw on, which bounds every tile and every single-image
+   * export. Measured, not taken from documentation, because neither engine documents it and the two
+   * differ:
+   *
+   * - **Chrome and Edge:** 65,535 px per axis and exactly 2^28 px of area, for both `<canvas>` and
+   *   `OffscreenCanvas` (Chrome 155, macOS, 2026-10-16).
+   * - **Firefox:** the same 65,535 px per axis, but its area limit is in bytes: one allocation, with
+   *   each row padded to 16 bytes, must stay under 2^31. That fails 65,535 x 8,192 although it is
+   *   under 2^29 px. 2^29 - 2^18 px clears it at every width, with room for the padding (Firefox
+   *   158, macOS, 2026-10-16; 30 awkward widths at exactly this area all drew).
+   *
+   * How: draw one pixel at the far corner and read it back, binary-searching each axis and then
+   * the height at widths of 16,384, 32,768 and 65,535. Allocation can succeed past the limit with an
+   * unusable context, so the read-back is the test, not the constructor.
+   */
+  canvas: CanvasLimits
+}
+
+export interface CanvasLimits {
+  maxDimension: number
+  maxPixels: number
 }
 
 /**
