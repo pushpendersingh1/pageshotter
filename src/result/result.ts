@@ -1,3 +1,4 @@
+import { BROWSER, extensionDetailsPage } from '../shared/browser'
 import { deleteCapture, deleteHistoryEntries, getEditorDoc, getHistoryEntry, getHistoryPageContent, getJob, getSegments } from '../shared/capture-db'
 import { restoreTiledImage, saveCaptureToHistory } from './history-io'
 import { ExportMenu, saveWithAnchor } from './export-menu'
@@ -88,6 +89,8 @@ function showForcedReview(anchor: HTMLButtonElement): void {
 
 /** Records one successful export and returns the state to ask with, or `undefined` when not now. */
 async function recordExportSuccess(): Promise<ReviewState | undefined> {
+  // No listing to rate yet in this browser: no ask, and no counting toward one either.
+  if (BROWSER.reviewUrl === null) return undefined
   try {
     const now = Date.now()
     const stored = await getReviewState()
@@ -189,7 +192,7 @@ const errorActionLabel = requiredElement<HTMLElement>('result-error-action-label
  * access toggle is, rather than on a list the reader then has to search.
  */
 errorAction.addEventListener('click', () => {
-  void chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` })
+  void chrome.tabs.create({ url: extensionDetailsPage() })
 })
 
 let image: TiledImage | undefined
@@ -752,7 +755,7 @@ function askForFilename(options: {
         return
       }
 
-      setBusy('Waiting for Chrome…')
+      setBusy(`Waiting for ${BROWSER.name}…`)
 
       void request
         .then(async (granted) => {
@@ -787,7 +790,7 @@ function askForFilename(options: {
         }
         if (outcome === 'refused') {
           showSaveProblem(
-            `Chrome could not save to ${displayedDownloadPath(choice.folder, choice.filename)}. ` +
+            `${BROWSER.name} could not save to ${displayedDownloadPath(choice.folder, choice.filename)}. ` +
               `Nothing was saved. You can save this file to ` +
               `${displayedDownloadPath('', choice.filename)} instead.`,
             true,

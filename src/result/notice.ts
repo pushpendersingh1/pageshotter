@@ -1,3 +1,4 @@
+import { BROWSER } from '../shared/browser'
 import { fileAccessMessage } from '../shared/errors'
 import { degradationParts } from '../shared/capture-degradation'
 import { CAPTURE_LIMITS } from '../shared/capture-plan'
@@ -50,7 +51,7 @@ export function captureNotice(job: CaptureJob, historyFailure?: string): NoticeC
     return {
       parts: [
         t(
-          'Chrome does not allow extensions to run on this page, so PageShotter captured the visible area instead. Content outside the viewport is not included.',
+          `${BROWSER.name} does not allow extensions to run on this page, so PageShotter captured the visible area instead. Content outside the viewport is not included.`,
         ),
       ],
       settingsLink: false,

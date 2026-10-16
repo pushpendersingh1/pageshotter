@@ -1,9 +1,9 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { zipSync } from 'fflate'
+import { buildTarget } from './targets.mjs'
 
-const root = path.resolve(import.meta.dirname, '..')
-const dist = path.join(root, 'dist')
+const { outdir: dist, zip } = buildTarget()
 const files = {}
 
 /** Every entry is stamped with one fixed timestamp so the same `dist/` always zips to the same
@@ -23,5 +23,5 @@ async function collect(directory, prefix = '') {
 }
 
 await collect(dist)
-await writeFile(path.join(root, 'pageshotter-extension.zip'), zipSync(files, { level: 9 }))
-console.log(`Packaged ${Object.keys(files).length} files in pageshotter-extension.zip`)
+await writeFile(zip, zipSync(files, { level: 9 }))
+console.log(`Packaged ${Object.keys(files).length} files in ${path.basename(zip)}`)

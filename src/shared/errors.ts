@@ -1,3 +1,4 @@
+import { BROWSER } from './browser'
 import type { CaptureError } from './messages'
 
 export class PageShotterError extends Error {
@@ -24,6 +25,9 @@ const RESTRICTED_PAGE_PATTERNS = [
   'chrome-extension://',
   'chromewebstore.google.com',
   'chrome.google.com/webstore',
+  // Edge's equivalents. Matching raw error text, so every build can carry every browser's.
+  'edge://',
+  'microsoftedge.microsoft.com',
   'devtools://',
   'view-source:',
   'extension manifest must request permission',
@@ -35,7 +39,7 @@ export function isRestrictedPageError(message: string): boolean {
 }
 
 const RESTRICTED_PAGE_MESSAGE =
-  'Chrome does not allow extensions to run on this page, so it cannot be captured in full.'
+  `${BROWSER.name} does not allow extensions to run on this page, so it cannot be captured in full.`
 
 const GENERIC_FAILURE_MESSAGE = 'The page could not be captured.'
 
@@ -86,7 +90,7 @@ export function isFileUrl(url: string | undefined): boolean {
 }
 
 const FILE_ACCESS_REMEDY =
-  'Open chrome://extensions, click Details on PageShotter, and turn on "Allow access to file URLs".'
+  `Open ${BROWSER.extensionsPage}, click Details on PageShotter, and turn on "Allow access to file URLs".`
 
 /**
  * What to say when a capture of a local file was refused because the toggle is off.

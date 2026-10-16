@@ -62,17 +62,19 @@ storage; [`public/welcome.html`](public/welcome.html) lists exactly what is stor
 
 ## Build and load it yourself
 
-Requires Node.js 22+ and Chrome 120+.
+Requires Node.js 22+ and Chrome or Edge 120+.
 
 ```bash
 npm ci
-npm run verify     # lint + typecheck + tests + build
-npm run dev        # rebuild dist/ on every change
-npm run package    # build + zip for the store
+npm run verify        # lint + typecheck + tests + build every browser
+npm run dev           # rebuild dist/ on every change
+npm run package       # build + zip for the Chrome Web Store
+npm run build:edge    # build dist-edge/ for Microsoft Edge
+npm run package:edge  # build + zip for Edge Add-ons
 ```
 
-Then open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked** and select
-`dist/`. Chrome must keep the source tab active during a full-page capture, because
+Then open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, choose
+**Load unpacked** and select `dist/` (or `dist-edge/`). Chrome must keep the source tab active during a full-page capture, because
 `tabs.captureVisibleTab()` only captures the active tab.
 
 `npm run fixtures` serves the difficult-page test corpus at `http://localhost:4173`: sticky headers,

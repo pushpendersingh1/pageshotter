@@ -1,3 +1,4 @@
+import { BROWSER, SHORTCUTS_PAGE } from '../shared/browser'
 import { DEFAULT_HISTORY_LIMITS, HISTORY_RETENTION_CHOICES, formatBytes } from '../shared/history-policy'
 import { pruneHistory } from '../shared/history-prune'
 import {
@@ -33,7 +34,7 @@ import {
 } from '../shared/history-settings'
 import { folderProblem, sanitiseFolder } from '../shared/download-folder'
 import { deleteHistoryEntries, listHistory } from '../shared/capture-db'
-import { SHORTCUTS_PAGE, captureShortcut } from '../shared/shortcut'
+import { captureShortcut } from '../shared/shortcut'
 import { applyStoredTheme, wireThemeButton } from '../shared/theme'
 import {
   EXPORT_FORMATS,
@@ -536,7 +537,7 @@ async function refreshPermission(): Promise<void> {
   permAction.disabled = folderCommitBusy
   permNote.textContent = permissionGranted
     ? 'PageShotter uses this access only to start downloads in the folder above. It never changes existing files or searches or erases download history.'
-    : 'Set folder asks Chrome for access. The folder is not saved unless access is granted.'
+    : `Set folder asks ${BROWSER.name} for access. The folder is not saved unless access is granted.`
   drawAutoDownloadCaution()
   refreshFolderNotes()
 }
@@ -563,7 +564,7 @@ async function commitFolder(): Promise<void> {
       showFolderStatus(
         result.permissionRemoved
           ? 'Future captures save to Downloads. Existing files were not changed.'
-          : 'Future captures save to Downloads. Chrome still shows access, so you can remove it below.',
+          : `Future captures save to Downloads. ${BROWSER.name} still shows access, so you can remove it below.`,
       )
     }
   } catch (error) {
@@ -594,13 +595,13 @@ async function removeFolderAccess(): Promise<void> {
     await chrome.permissions.remove({ permissions: ['downloads'] })
   } catch (error) {
     const detail = error instanceof Error && error.message !== '' ? ` ${error.message}` : ''
-    showFolderStatus(`The folder preference was cleared, but Chrome could not remove access.${detail}`)
+    showFolderStatus(`The folder preference was cleared, but ${BROWSER.name} could not remove access.${detail}`)
   }
   await refreshPermission()
   if (!permissionGranted) {
     showFolderStatus('Folder access was removed. Existing files were not changed.')
   } else if (!folderStatus.textContent?.includes('could not remove')) {
-    showFolderStatus('The folder preference was cleared, but Chrome still shows access. Try Remove access again.')
+    showFolderStatus(`The folder preference was cleared, but ${BROWSER.name} still shows access. Try Remove access again.`)
   }
   folderCommitBusy = false
   refreshFolderNotes()
@@ -673,7 +674,7 @@ async function drawShortcut(): Promise<void> {
   if (assigned === '') {
     shortcutTitle.textContent = 'No shortcut is assigned'
     shortcutBody.textContent =
-      'Chrome could not take the suggested combination, most likely because another extension ' +
+      `${BROWSER.name} could not take the suggested combination, most likely because another extension ` +
       'already had it. Pick your own and full-page capture works without opening the popup.'
     return
   }

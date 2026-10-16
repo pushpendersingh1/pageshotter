@@ -1,0 +1,16 @@
+{
+  "chrome": {
+    "name": "Chrome",
+    "extensionsPage": "chrome://extensions",
+    "storeName": "Chrome Web Store",
+    "reviewUrl": "https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf/reviews",
+    "pinHint": "Chrome hides new extensions behind the puzzle-piece icon in the toolbar. Click it, then the pin beside PageShotter, to keep the button where you can reach it."
+  },
+  "edge": {
+    "name": "Edge",
+    "extensionsPage": "edge://extensions",
+    "storeName": "Edge Add-ons",
+    "reviewUrl": null,
+    "pinHint": "Edge hides new extensions behind the puzzle-piece icon in the toolbar. Click it, then the eye icon beside PageShotter, to keep the button where you can reach it."
+  }
+}

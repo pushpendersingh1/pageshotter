@@ -1,3 +1,4 @@
+import { BROWSER } from './browser'
 import { PageShotterError } from './errors'
 import {
   flattenParts,
@@ -31,7 +32,7 @@ export function nextScrollY(
   documentHeight: number,
 ): number | null {
   if (viewportHeight <= 0 || documentHeight <= 0) {
-    throw new PageShotterError('INVALID_PAGE_SIZE', 'Chrome reported an invalid page size.')
+    throw new PageShotterError('INVALID_PAGE_SIZE', `${BROWSER.name} reported an invalid page size.`)
   }
 
   if (currentY + viewportHeight >= documentHeight - 1) return null
@@ -63,7 +64,7 @@ export function sectionLimitCssHeight(
   maxSegments: number = CAPTURE_LIMITS.maxSegments,
 ): number {
   if (captureHeight <= 0 || maxSegments <= 0) {
-    throw new PageShotterError('INVALID_PAGE_SIZE', 'Chrome reported an invalid page size.')
+    throw new PageShotterError('INVALID_PAGE_SIZE', `${BROWSER.name} reported an invalid page size.`)
   }
   return Math.max(0, startOffset) + captureHeight * maxSegments
 }
@@ -123,7 +124,7 @@ export function fitsOneCanvas(width: number, height: number): boolean {
  */
 export function maxTiledImageWidth(tileHeight: number): number {
   if (tileHeight <= 0) {
-    throw new PageShotterError('INVALID_PAGE_SIZE', 'Chrome reported an invalid page size.')
+    throw new PageShotterError('INVALID_PAGE_SIZE', `${BROWSER.name} reported an invalid page size.`)
   }
   return Math.min(
     CAPTURE_LIMITS.maxCanvasDimension,
@@ -168,7 +169,7 @@ export function singleImageLimitParts(
   return [
     noticeText('This capture is '),
     size,
-    noticeText(', and Chrome cannot hold more than '),
+    noticeText(`, and ${BROWSER.name} cannot hold more than `),
     noticeNumber(overAxis ? limits.maxDimension : limits.maxPixels),
     noticeText(overAxis ? ' pixels on a side' : ' pixels in total'),
     noticeText(

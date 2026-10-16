@@ -1,6 +1,6 @@
+import { BROWSER } from '../shared/browser'
 import {
   REVIEW_FEEDBACK_URL,
-  REVIEW_STORE_URL,
   type ReviewState,
   getReviewState,
   putReviewState,
@@ -37,6 +37,8 @@ export function buildReview(count: number, onClose: () => void, card: HTMLElemen
     (document.getElementById('rv-tpl') as HTMLTemplateElement).content.cloneNode(true) as DocumentFragment,
   )
   root.querySelector('.rv-count')!.textContent = String(count)
+  // An attribute cannot carry the build's browser marker, so the store is named here.
+  root.querySelector('[data-step="ask"] .rv-frame')!.setAttribute('aria-label', `Rate on the ${BROWSER.storeName}`)
   const starsEl = root.querySelector('.rv-stars') as HTMLElement
   const hint = root.querySelector('.rv-hint') as HTMLElement
   for (let i = 1; i <= 5; i++) {
@@ -45,7 +47,7 @@ export function buildReview(count: number, onClose: () => void, card: HTMLElemen
     b.className = 'rv-star'
     b.dataset.n = String(i)
     b.dataset.rv = 'rate'
-    b.setAttribute('aria-label', `Rate ${i} star${i > 1 ? 's' : ''} on the Chrome Web Store`)
+    b.setAttribute('aria-label', `Rate ${i} star${i > 1 ? 's' : ''} on the ${BROWSER.storeName}`)
     b.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${STAR_PATH}"/></svg>`
     starsEl.append(b)
   }
@@ -76,7 +78,7 @@ export function buildReview(count: number, onClose: () => void, card: HTMLElemen
     if (act === 'rate') {
       // Synchronous with the click: the ask is open, no dialog is closing around it, and the tab
       // must open before anything yields.
-      void chrome.tabs.create({ url: REVIEW_STORE_URL })
+      if (BROWSER.reviewUrl) void chrome.tabs.create({ url: BROWSER.reviewUrl })
       locked = true
       void saveAnswer('rate')
       const n = Number(t.dataset.n || 5)

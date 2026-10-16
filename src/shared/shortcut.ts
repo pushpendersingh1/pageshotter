@@ -21,6 +21,3 @@ export async function captureShortcut(): Promise<string> {
     return ''
   }
 }
-
-/** Chrome's own page for rebinding extension shortcuts. Nothing else can change the binding. */
-export const SHORTCUTS_PAGE = 'chrome://extensions/shortcuts'

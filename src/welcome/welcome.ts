@@ -1,4 +1,5 @@
-import { SHORTCUTS_PAGE, captureShortcut } from '../shared/shortcut'
+import { BROWSER, SHORTCUTS_PAGE } from '../shared/browser'
+import { captureShortcut } from '../shared/shortcut'
 import { applyStoredTheme } from '../shared/theme'
 
 // Chrome follows the theme; the preference is set in the popup and read by every page.
@@ -40,7 +41,7 @@ async function drawShortcut(): Promise<void> {
   if (assigned === '') {
     shortcutTitle.textContent = 'No shortcut is assigned yet'
     shortcutBody.replaceChildren(
-      'Chrome could not take the suggested combination, most likely because another extension ' +
+      `${BROWSER.name} could not take the suggested combination, most likely because another extension ` +
         'already had it. Pick your own and full-page capture works without opening the popup.',
     )
     return
