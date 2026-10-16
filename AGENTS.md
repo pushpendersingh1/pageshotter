@@ -14,7 +14,7 @@ npm run build:firefox # esbuild → dist-firefox/ (load as a temporary add-on in
 npm run dev        # rebuild dist/ on every change; add `-- --target edge` for dist-edge/
 npm run package    # build + zip → pageshotter-extension.zip
 npm run package:edge # build + zip → pageshotter-extension-edge.zip
-npm run package:firefox # build + zip → pageshotter-extension-firefox.zip
+npm run package:firefox # build + zip → pageshotter-extension-firefox.zip, plus -source.zip for AMO (clean tree only)
 npm run fixtures   # serve tests/fixtures on http://localhost:4173
 ```
 

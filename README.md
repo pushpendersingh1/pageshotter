@@ -72,7 +72,7 @@ npm run package       # build + zip for the Chrome Web Store
 npm run build:edge    # build dist-edge/ for Microsoft Edge
 npm run package:edge  # build + zip for Edge Add-ons
 npm run build:firefox # build dist-firefox/ for Firefox
-npm run package:firefox # build + zip for Firefox Add-ons
+npm run package:firefox # build + zip for Firefox Add-ons, plus the source zip AMO requires
 ```
 
 Then open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, choose
