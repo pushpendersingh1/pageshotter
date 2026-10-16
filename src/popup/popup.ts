@@ -1,4 +1,4 @@
-import { SHORTCUTS_PAGE, extensionDetailsPage } from '../shared/browser'
+import { extensionDetailsPage, openShortcutSettings } from '../shared/browser'
 import { listHistory } from '../shared/capture-db'
 import { filledSegments, segmentCount } from './progress-bar'
 import { captureEtaLabel } from '../shared/capture-eta'
@@ -133,7 +133,7 @@ async function drawShortcuts(): Promise<void> {
     )
     chip.hidden = false
     chip.addEventListener('click', () => {
-      void chrome.tabs.create({ url: SHORTCUTS_PAGE })
+      openShortcutSettings()
       window.close()
     })
   }
@@ -231,12 +231,18 @@ async function start(mode: CaptureMode): Promise<void> {
 async function poll(): Promise<void> {
   if (!activeJobId) return
   const response = await send({ type: 'GET_JOB', jobId: activeJobId })
+  if (response.ok && !response.job) {
+    /*
+     * The job record is gone, and the only thing that removes a fresh one is the result page moving
+     * it into history -- so the capture finished and was delivered. Chrome closes the popup when the
+     * result tab opens and never got here; Firefox keeps it open, and reported a successful capture
+     * as "status unavailable" whenever this poll lost the race to the result page.
+     */
+    window.close()
+    return
+  }
   if (!response.ok || !response.job) {
-    showError(
-      response.ok
-        ? { code: 'CAPTURE_FAILED', message: 'Capture status was unavailable.' }
-        : response.error,
-    )
+    showError(response.ok ? { code: 'CAPTURE_FAILED', message: 'Capture status was unavailable.' } : response.error)
     return
   }
 
@@ -247,9 +253,11 @@ async function poll(): Promise<void> {
     showError(
       response.job.error ?? { code: 'CAPTURE_FAILED', message: 'The page could not be captured.' },
     )
-  } else if (response.job.status === 'cancelled' || response.job.status === 'complete') {
-    // Completing opens the result tab, which normally closes the popup with it; resetting here keeps
-    // the popup usable in the cases where it survives.
+  } else if (response.job.status === 'complete') {
+    // The result page has it from here. Chrome closes the popup as that tab opens; Firefox leaves it
+    // open, and a background save opens no tab in front in either, so the popup closes itself.
+    window.close()
+  } else if (response.job.status === 'cancelled') {
     showActions()
   }
 }
@@ -343,8 +351,9 @@ function showProgress(mode: CaptureMode): void {
  * navigate a tab there, and `?id=` lands on PageShotter's own details page, where the file access
  * toggle is, rather than on a list the reader then has to search for their own extension in.
  */
+const detailsPage = extensionDetailsPage()
 errorAction.addEventListener('click', () => {
-  void chrome.tabs.create({ url: extensionDetailsPage() })
+  if (detailsPage) void chrome.tabs.create({ url: detailsPage })
 })
 
 function showError(error: CaptureError): void {
@@ -357,7 +366,8 @@ function showError(error: CaptureError): void {
   errorMessage.textContent = error.message
   // Telling someone to turn on a toggle without taking them to it leaves them hunting through
   // chrome://extensions for their own extension.
-  errorAction.hidden = error.code !== 'FILE_ACCESS_DENIED'
+  // Where the browser will not open its extensions page, the message's own steps are the remedy.
+  errorAction.hidden = error.code !== 'FILE_ACCESS_DENIED' || detailsPage === null
 }
 
 function showActions(): void {

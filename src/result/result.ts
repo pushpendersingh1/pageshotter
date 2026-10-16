@@ -191,8 +191,9 @@ const errorActionLabel = requiredElement<HTMLElement>('result-error-action-label
  * may navigate a tab there, and `?id=` lands on PageShotter's own details page, where the file
  * access toggle is, rather than on a list the reader then has to search.
  */
+const detailsPage = extensionDetailsPage()
 errorAction.addEventListener('click', () => {
-  void chrome.tabs.create({ url: extensionDetailsPage() })
+  if (detailsPage) void chrome.tabs.create({ url: detailsPage })
 })
 
 let image: TiledImage | undefined
@@ -1221,7 +1222,7 @@ function showError(message: string): void {
   // to chrome://extensions still has to find their extension in a list to act on it.
   const fixable = failureCode === 'FILE_ACCESS_DENIED'
   errorActionLabel.textContent = 'Open PageShotter’s permissions'
-  errorAction.hidden = !fixable
+  errorAction.hidden = !fixable || detailsPage === null
 }
 
 /**

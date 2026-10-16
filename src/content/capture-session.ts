@@ -1423,7 +1423,7 @@ class RegionSelector {
     // in element mode with a stale highlight and no way back to the crosshair.
     window.addEventListener('blur', this.onWindowBlur)
     // On macOS, Ctrl+click is the system gesture for a context menu. Without this a Mac user's
-    // modifier opens Chrome's menu over the overlay instead of picking the element beneath it.
+    // modifier opens the browser's menu over the overlay instead of picking the element beneath it.
     window.addEventListener('contextmenu', this.onContextMenu, true)
   }
 
@@ -1544,6 +1544,14 @@ class RegionSelector {
   private readonly onContextMenu = (event: MouseEvent): void => {
     event.preventDefault()
     event.stopPropagation()
+    /*
+     * On macOS, Firefox turns Ctrl+click into a secondary press and dispatches `contextmenu` *before*
+     * it, and with the menu prevented the press that `onPointerDown` waits for never comes: the
+     * element stayed outlined and the click did nothing. So in element mode the menu event is the
+     * pick too. Chrome sends the press first, which finishes the selection, and `finish` ignores
+     * this second call -- as it does once the selection is over and only this suppressor remains.
+     */
+    if (this.elementMode && this.elementRegion) this.finish(this.elementRegion)
   }
 
   /** Switches between crosshair-drag and element-pick, and swaps every affordance that differs. */

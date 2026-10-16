@@ -24,5 +24,36 @@ export function buildTarget(argv = process.argv) {
     profile: BROWSERS[target],
     outdir: path.join(root, `dist${suffix}`),
     zip: path.join(root, `pageshotter-extension${suffix}.zip`),
+    esbuildTarget: target === 'firefox' ? `firefox${FIREFOX_MIN}` : 'chrome120',
+  }
+}
+
+/**
+ * Firefox's floor. 153 is the ESR, and the first release where `extension.isAllowedFileSchemeAccess`
+ * reflects a real setting rather than always answering false, which the local-file remedy depends on.
+ */
+const FIREFOX_MIN = 153
+
+/**
+ * `public/manifest.json` is Chrome's, and Edge takes it as it is. Firefox has no MV3 service worker,
+ * so the same bundle runs as an event page there, and AMO requires an ID and a data-collection
+ * declaration. Chrome-only keys are dropped rather than left for Firefox to warn about.
+ */
+export function manifestFor(target, manifest) {
+  if (target !== 'firefox') return manifest
+  const rest = { ...manifest }
+  delete rest.minimum_chrome_version
+  return {
+    ...rest,
+    background: { scripts: [manifest.background.service_worker] },
+    browser_specific_settings: {
+      gecko: {
+        // Permanent once submitted to AMO: every installed copy is matched to its updates by it.
+        id: 'pageshotter@pageshotter.com',
+        strict_min_version: `${FIREFOX_MIN}.0`,
+        // Nothing leaves the device, which AMO asks every new listing to declare.
+        data_collection_permissions: { required: ['none'] },
+      },
+    },
   }
 }

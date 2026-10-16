@@ -1961,7 +1961,7 @@ function setTool(tool: Tool): void {
     const label = key === '' ? name : `${name} (${key})`
     main.setAttribute('aria-label', label)
     main.dataset.tip = label
-    mainIcon.innerHTML = icon.innerHTML
+    mainIcon.replaceChildren(...[...icon.childNodes].map((node) => node.cloneNode(true)))
     for (const row of grouped.querySelectorAll<HTMLButtonElement>('.tool-flyout [data-tool]')) {
       row.setAttribute('aria-checked', String(row.dataset.tool === tool))
     }

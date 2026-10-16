@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   captureError,
   fileAccessMessage,
+  fileAccessMessageFor,
   isFileUrl,
   isRestrictedPageError,
+  isRestrictedPageUrl,
   PageShotterError,
   visibleAreaFallbackAvailable,
 } from '../src/shared/errors'
@@ -121,5 +123,63 @@ describe('fileAccessMessage', () => {
   it('admits the screenshot is partial only when there is a screenshot', () => {
     expect(fileAccessMessage(true)).toContain('visible area')
     expect(fileAccessMessage(false)).not.toContain('visible area')
+  })
+})
+
+describe('isRestrictedPageUrl', () => {
+  it('knows every browser\'s own pages and stores', () => {
+    for (const url of [
+      'chrome://settings',
+      'edge://settings',
+      'about:preferences',
+      'about:blank',
+      'moz-extension://abc/popup.html',
+      'https://addons.mozilla.org/en-US/firefox/',
+      'https://microsoftedge.microsoft.com/addons/detail/x',
+      'https://chromewebstore.google.com/detail/x',
+    ]) {
+      expect(isRestrictedPageUrl(url), url).toBe(true)
+    }
+  })
+
+  it('leaves ordinary pages, local files and a missing address alone', () => {
+    for (const url of ['https://example.com/about:', 'file:///tmp/a.html', 'https://addons.mozilla.org.example.com/', undefined]) {
+      expect(isRestrictedPageUrl(url), String(url)).toBe(false)
+    }
+  })
+
+  /*
+   * Firefox says "Missing host permission for the tab" on every page it keeps extensions out of,
+   * and on nothing that names the page -- so the address decides, and only after a failure.
+   */
+  it('turns Firefox\'s unnamed refusal into the restricted-page message when the address says so', () => {
+    const refusal = new Error('Missing host permission for the tab')
+    expect(captureError(refusal, 'about:preferences').code).toBe('RESTRICTED_PAGE')
+    expect(captureError(new Error('something else'), 'about:preferences').code).toBe('RESTRICTED_PAGE')
+    expect(captureError(new Error('something else'), 'https://example.com/').code).toBe('CAPTURE_FAILED')
+  })
+})
+
+describe('local PDFs and Firefox local files', () => {
+  /* The browser's PDF viewer refuses every extension, so file access is not what stops it. */
+  it('treats a PDF as a page the browser keeps extensions out of, local or not', () => {
+    expect(isRestrictedPageUrl('file:///Users/me/Downloads/report.pdf')).toBe(true)
+    expect(isRestrictedPageUrl('https://example.com/a.PDF?download=1#page=2')).toBe(true)
+    expect(isRestrictedPageUrl('file:///Users/me/notes.html')).toBe(false)
+    expect(isRestrictedPageUrl('https://example.com/pdf-guide')).toBe(false)
+  })
+
+  /*
+   * Firefox 153 offers its local-files setting only to extensions that request file access, and
+   * PageShotter does not, so there is nothing to send anyone to.
+   */
+  it('names no setting where the browser has none to offer', () => {
+    for (const captured of [true, false]) {
+      const message = fileAccessMessageFor('Firefox', null, captured)
+      expect(message).toContain("can't read local files in Firefox")
+      expect(message).not.toContain('permission')
+      expect(message).not.toContain('about:addons')
+      expect(message.includes('visible area')).toBe(captured)
+    }
   })
 })

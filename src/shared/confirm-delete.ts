@@ -59,7 +59,8 @@ export function confirmDelete(options: { heading: string; detail: string }): Pro
   // be filled from a glyph already on the page, and is simply left empty when there is none.
   const source = document.querySelector('svg[data-icon="trash"]')
   const mark = dialog.querySelector('svg[data-icon="trash"]')
-  if (source && mark) mark.innerHTML = source.innerHTML
+  // Cloned nodes rather than `innerHTML`: the same glyph, without handing a store's linter markup to vet.
+  if (source && mark) mark.replaceChildren(...[...source.childNodes].map((node) => node.cloneNode(true)))
 
   document.body.append(dialog)
 

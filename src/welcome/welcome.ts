@@ -1,4 +1,4 @@
-import { BROWSER, SHORTCUTS_PAGE } from '../shared/browser'
+import { BROWSER, openShortcutSettings } from '../shared/browser'
 import { captureShortcut } from '../shared/shortcut'
 import { applyStoredTheme } from '../shared/theme'
 
@@ -9,7 +9,7 @@ const shortcutTitle = requiredElement<HTMLElement>('shortcut-title')
 const shortcutBody = requiredElement<HTMLElement>('shortcut-body')
 
 requiredElement<HTMLButtonElement>('open-shortcuts').addEventListener('click', () => {
-  void chrome.tabs.create({ url: SHORTCUTS_PAGE })
+  openShortcutSettings()
 })
 requiredElement<HTMLButtonElement>('open-settings').addEventListener('click', () => {
   void chrome.runtime.openOptionsPage()
