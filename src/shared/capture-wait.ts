@@ -105,3 +105,50 @@ export async function getImageWaitMs(): Promise<number> {
 export async function setImageWaitMs(ms: number): Promise<void> {
   await putSetting(IMAGE_WAIT_KEY, isOfferedImageWait(ms) ? ms : DEFAULT_IMAGE_WAIT_MS)
 }
+
+/**
+ * The warm-up pass: one quick walk down the page before the first section is taken.
+ *
+ * A lazy image only starts loading when it nears the viewport, and the capture used to be the
+ * first thing to bring it there -- so each section asked for its pictures and then waited for them
+ * alone, up to the image ceiling, one section at a time. On a slow server that ceiling ran out
+ * section after section and the screenshot was a column of empty slots. Walking the page first
+ * starts every load at once, so they arrive in parallel while the walk continues, and by the time
+ * the real pass reaches a section its pictures have had the whole walk to come in.
+ *
+ * These are the offsets the walk stops at: one per screen below the starting position, each a full
+ * screen past the last so nothing is skipped, clamped to the deepest the page can scroll, and never
+ * past `contentHeight` as it stood when the walk began. Measured once, like the long-page policy's
+ * starting height, so a feed that appends as it is scrolled cannot make the walk endless. A page
+ * that fits on one screen gets no walk at all.
+ */
+export function warmUpOffsets(
+  startOffset: number,
+  contentHeight: number,
+  captureHeight: number,
+  maxSteps: number,
+): number[] {
+  if (captureHeight <= 0 || maxSteps <= 0) return []
+  const deepest = Math.max(0, contentHeight - captureHeight)
+  const offsets: number[] = []
+  let offset = Math.max(0, startOffset)
+  while (offset < deepest && offsets.length < maxSteps) {
+    offset = Math.min(offset + captureHeight, deepest)
+    offsets.push(offset)
+  }
+  return offsets
+}
+
+/**
+ * The most the walk may take. It is paid on every full-page capture, so it is bounded by time as
+ * well as by the section ceiling: at the per-screen pause this covers about seventy screens, and a
+ * page deeper than that gets its lower lazy images from the per-section wait, as it always did.
+ */
+export const WARM_UP_BUDGET_MS = 6_000
+
+/**
+ * How long the walk rests on each screen after it has been painted. An `IntersectionObserver` is
+ * told about the new position in the frame the walk waits for; this is the rest of what a page
+ * needs to act on it -- many debounce, or start the load from a short timer.
+ */
+export const WARM_UP_PAUSE_MS = 40

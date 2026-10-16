@@ -8,6 +8,7 @@ import {
   SECTION_WAIT_CHOICES,
   remainingSectionWaitMs,
   sectionWaitCostMs,
+  warmUpOffsets,
 } from '../src/shared/capture-wait'
 
 describe('the per-section wait floor', () => {
@@ -92,5 +93,34 @@ describe('the per-section image wait ceiling', () => {
     const values = IMAGE_WAIT_CHOICES.map((choice) => choice.ms)
     expect(values).toStrictEqual([...values].sort((a, b) => a - b))
     expect(new Set(values).size).toBe(values.length)
+  })
+})
+
+describe('the warm-up walk', () => {
+  it('stops once per screen below the start, landing on the deepest scroll position', () => {
+    // A 3,000px page in a 1,000px window can scroll to 2,000, and gets there in two screens.
+    expect(warmUpOffsets(0, 3_000, 1_000, 200)).toEqual([1_000, 2_000])
+  })
+
+  it('clamps the last stop rather than skipping the remainder of the page', () => {
+    expect(warmUpOffsets(0, 2_500, 1_000, 200)).toEqual([1_000, 1_500])
+  })
+
+  it('does not walk a page that fits on one screen', () => {
+    expect(warmUpOffsets(0, 1_000, 1_000, 200)).toEqual([])
+    expect(warmUpOffsets(0, 600, 1_000, 200)).toEqual([])
+  })
+
+  it('starts from where the capture starts, not from the top of the document', () => {
+    expect(warmUpOffsets(400, 3_000, 1_000, 200)).toEqual([1_400, 2_000])
+  })
+
+  it('is held to the section ceiling, so an enormous page cannot walk forever', () => {
+    expect(warmUpOffsets(0, 10_000_000, 1_000, 200)).toHaveLength(200)
+  })
+
+  it('returns nothing for a viewport it cannot step by', () => {
+    expect(warmUpOffsets(0, 3_000, 0, 200)).toEqual([])
+    expect(warmUpOffsets(0, 3_000, 1_000, 0)).toEqual([])
   })
 })

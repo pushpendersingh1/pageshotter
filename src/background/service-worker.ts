@@ -719,6 +719,7 @@ async function captureFullPage(job: CaptureJob, tabId: number, windowId: number)
     jobId: job.id,
     sectionWaitMs: await getSectionWaitMs(),
     imageWaitMs: await getImageWaitMs(),
+    warmUp: true,
   })
   if (!prepared.ok || !prepared.metrics) throw responseError(prepared)
   if (prepared.degradations) {
@@ -743,7 +744,7 @@ async function captureFullPage(job: CaptureJob, tabId: number, windowId: number)
    * except the one the user explicitly opts into terminates by construction rather than by
    * threshold.
    */
-  const frozenHeight = Math.max(1, prepared.metrics.documentHeight)
+  const frozenHeight = Math.max(1, prepared.startingDocumentHeight ?? prepared.metrics.documentHeight)
   const policy = await getLongPagePolicy()
   const startedAt = Date.now()
   // Computed once, from the viewport the capture starts with, so the depth the page is told about is

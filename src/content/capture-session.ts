@@ -1,5 +1,11 @@
 import type { Degradations } from '../shared/capture-degradation'
-import { remainingSectionWaitMs } from '../shared/capture-wait'
+import { CAPTURE_LIMITS } from '../shared/capture-plan'
+import {
+  WARM_UP_BUDGET_MS,
+  WARM_UP_PAUSE_MS,
+  remainingSectionWaitMs,
+  warmUpOffsets,
+} from '../shared/capture-wait'
 import { ContentHarvest, harvestShift } from '../shared/content-harvest'
 import type { CaptureMetrics, ContentRequest, ContentResponse } from '../shared/messages'
 import type { CapturedLink, CapturedTextRun, PageContent } from '../shared/page-content'
@@ -331,6 +337,7 @@ class CaptureSession {
   /** The user's floor under each section's wait, in milliseconds. Zero unless they raised it. */
   private sectionWaitMs = 0
   private imageWaitMs = IMAGE_TIMEOUT_MS
+  private startingHeight: number | undefined
   private watchdog: number | undefined
   private readonly harvest = new ContentHarvest()
   /**
@@ -365,7 +372,7 @@ class CaptureSession {
     void chrome.runtime.sendMessage({ type: 'CANCEL_CAPTURE', jobId: this.jobId }).catch(() => undefined)
   }
 
-  async prepare(sectionWaitMs = 0, imageWaitMs = IMAGE_TIMEOUT_MS): Promise<CaptureMetrics> {
+  async prepare(sectionWaitMs = 0, imageWaitMs = IMAGE_TIMEOUT_MS, warmUp = false): Promise<CaptureMetrics> {
     this.sectionWaitMs = sectionWaitMs
     this.imageWaitMs = imageWaitMs
     this.armWatchdog()
@@ -378,6 +385,13 @@ class CaptureSession {
       this.target = ScrollTarget.detect()
       this.originalTargetOffset = this.target.currentOffset()
       await this.arriveAt(0)
+      await this.settle()
+    }
+    // Read before the walk, which can grow the page: "Stop at the starting height" means the height
+    // the page had when the capture began, not the one the walk left it with.
+    this.startingHeight = this.target.geometry().contentHeight
+    if (warmUp) {
+      await this.warmUp()
       await this.settle()
     }
     this.refreshSegmentCount()
@@ -1015,11 +1029,50 @@ class CaptureSession {
 
   private async settle(): Promise<void> {
     await waitForStableLayout(SETTLE_TIMEOUT_MS, () => this.target.geometry().contentHeight)
-    if (this.imageWaitMs > 0 && hasVisibleImageWithoutSource()) {
+    if (this.imageWaitMs > 0 && hasRenderedImageWithoutSource(true)) {
       await new Promise((resolve) => setTimeout(resolve, LAZY_SOURCE_GRACE_MS))
     }
     await this.waitForImages()
     await nextPaint()
+  }
+
+  /**
+   * Walks the page once, quickly, so its lazy images all start loading before the first section is
+   * taken; see `warmUpOffsets` for why. It photographs nothing and changes nothing the page does
+   * not already do when a person scrolls it -- the capture is about to scroll the same distance --
+   * and it ends where it began.
+   *
+   * It is part of the image wait, so turning that wait off turns this off too: someone who chose
+   * not to wait for pictures on a page has chosen not to pay for loading them either.
+   */
+  private async warmUp(): Promise<void> {
+    if (this.imageWaitMs <= 0) return
+    const start = this.target.geometry()
+    const offsets = warmUpOffsets(start.offset, start.contentHeight, start.captureHeight, CAPTURE_LIMITS.maxSegments)
+    if (offsets.length === 0) return
+    const deadline = performance.now() + WARM_UP_BUDGET_MS
+    for (const offset of offsets) {
+      if (this.stopping || performance.now() >= deadline) break
+      this.armWatchdog()
+      this.target.scrollTo(offset)
+      await nextPaint()
+      await new Promise((resolve) => setTimeout(resolve, WARM_UP_PAUSE_MS))
+    }
+    if (this.stopping) return
+    // The same two waits a section makes, over the whole page instead of one screen: a grace for a
+    // lazy image whose source is set from a timer, then one shared ceiling for every load the walk
+    // started, which are all in flight together.
+    if (hasRenderedImageWithoutSource(false)) {
+      await new Promise((resolve) => setTimeout(resolve, LAZY_SOURCE_GRACE_MS))
+    }
+    await waitForImages(this.imageWaitMs, false)
+    this.armWatchdog()
+    await this.arriveAt(start.offset)
+  }
+
+  /** The page's height before the warm-up walk, for the long-page policy to freeze. */
+  startingDocumentHeight(): number | undefined {
+    return this.startingHeight
   }
 
   /**
@@ -1032,7 +1085,7 @@ class CaptureSession {
    */
   private async waitForImages(): Promise<void> {
     if (this.imageWaitMs <= 0) return
-    await waitForVisibleImages(this.imageWaitMs)
+    await waitForImages(this.imageWaitMs, true)
   }
 
   private armWatchdog(): void {
@@ -1113,18 +1166,23 @@ async function waitForStableLayout(timeoutMs: number, measureHeight: () => numbe
   }
 }
 
-function hasVisibleImageWithoutSource(): boolean {
-  return Array.from(document.images).some((image) => {
-    const rect = image.getBoundingClientRect()
-    return !image.currentSrc && rect.bottom > 0 && rect.top < window.innerHeight
-  })
+/**
+ * Whether an image counts for a wait: one on screen, or -- for the warm-up walk, which waits for
+ * the whole page at once -- any image the page renders at all. An image that is `display: none` has
+ * no client rects and is never waited for, so a hidden template cannot hold up a capture.
+ */
+function inScope(image: HTMLImageElement, onScreenOnly: boolean): boolean {
+  if (!onScreenOnly) return image.getClientRects().length > 0
+  const rect = image.getBoundingClientRect()
+  return rect.bottom > 0 && rect.top < window.innerHeight
 }
 
-async function waitForVisibleImages(timeoutMs: number): Promise<void> {
-  const pending = Array.from(document.images).filter((image) => {
-    const rect = image.getBoundingClientRect()
-    return !image.complete && rect.bottom > 0 && rect.top < window.innerHeight
-  })
+function hasRenderedImageWithoutSource(onScreenOnly: boolean): boolean {
+  return Array.from(document.images).some((image) => !image.currentSrc && inScope(image, onScreenOnly))
+}
+
+async function waitForImages(timeoutMs: number, onScreenOnly: boolean): Promise<void> {
+  const pending = Array.from(document.images).filter((image) => !image.complete && inScope(image, onScreenOnly))
   if (pending.length === 0) return
 
   await Promise.race([
@@ -1756,7 +1814,8 @@ async function handleRequest(request: ContentRequest): Promise<ContentResponse> 
         activeSession = new CaptureSession(request.jobId)
         return {
           ok: true,
-          metrics: await activeSession.prepare(request.sectionWaitMs, request.imageWaitMs),
+          metrics: await activeSession.prepare(request.sectionWaitMs, request.imageWaitMs, request.warmUp),
+          startingDocumentHeight: activeSession.startingDocumentHeight(),
           pageUrl: location.href,
           degradations: activeSession.reportDegradations(),
         }
