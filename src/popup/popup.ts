@@ -231,12 +231,18 @@ async function start(mode: CaptureMode): Promise<void> {
 async function poll(): Promise<void> {
   if (!activeJobId) return
   const response = await send({ type: 'GET_JOB', jobId: activeJobId })
+  if (response.ok && !response.job) {
+    /*
+     * The job record is gone, and the only thing that removes a fresh one is the result page moving
+     * it into history -- so the capture finished and was delivered. Chrome closes the popup when the
+     * result tab opens and never got here; Firefox keeps it open, and reported a successful capture
+     * as "status unavailable" whenever this poll lost the race to the result page.
+     */
+    window.close()
+    return
+  }
   if (!response.ok || !response.job) {
-    showError(
-      response.ok
-        ? { code: 'CAPTURE_FAILED', message: 'Capture status was unavailable.' }
-        : response.error,
-    )
+    showError(response.ok ? { code: 'CAPTURE_FAILED', message: 'Capture status was unavailable.' } : response.error)
     return
   }
 
@@ -247,9 +253,11 @@ async function poll(): Promise<void> {
     showError(
       response.job.error ?? { code: 'CAPTURE_FAILED', message: 'The page could not be captured.' },
     )
-  } else if (response.job.status === 'cancelled' || response.job.status === 'complete') {
-    // Completing opens the result tab, which normally closes the popup with it; resetting here keeps
-    // the popup usable in the cases where it survives.
+  } else if (response.job.status === 'complete') {
+    // The result page has it from here. Chrome closes the popup as that tab opens; Firefox leaves it
+    // open, and a background save opens no tab in front in either, so the popup closes itself.
+    window.close()
+  } else if (response.job.status === 'cancelled') {
     showActions()
   }
 }
