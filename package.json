@@ -8,7 +8,9 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "package": "npm run build && node scripts/package.mjs",
+    "build:edge": "node scripts/build.mjs --target edge",
+    "package": "node scripts/build.mjs && node scripts/package.mjs",
+    "package:edge": "node scripts/build.mjs --target edge && node scripts/package.mjs --target edge",
     "dev": "node scripts/build.mjs --watch",
     "fixtures": "npx serve tests/fixtures -l 4173",
     "lint": "eslint .",
@@ -16,7 +18,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "verify:pages": "node scripts/verify-pages.mjs",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run verify:pages && npm run build"
+    "verify": "npm run lint && npm run typecheck && npm test && npm run verify:pages && npm run build && npm run build:edge"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

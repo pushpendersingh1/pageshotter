@@ -11,7 +11,8 @@
     "noImplicitOverride": true,
     "useDefineForClassFields": true,
     "allowJs": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "resolveJsonModule": true
   },
   "include": ["src", "tests", "scripts"]
 }

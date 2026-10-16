@@ -1,3 +1,4 @@
+import { BROWSER } from '../shared/browser'
 import {
   BUNDLED_FONTS,
   textBubblePath,
@@ -336,7 +337,7 @@ export function drawMagnifier(
 
 function canvasContext(canvas: OffscreenCanvas): OffscreenCanvasRenderingContext2D {
   const context = canvas.getContext('2d', { alpha: true, willReadFrequently: true })
-  if (!context) throw new Error('Chrome could not create the editor export canvas.')
+  if (!context) throw new Error(`${BROWSER.name} could not create the editor export canvas.`)
   return context
 }
 

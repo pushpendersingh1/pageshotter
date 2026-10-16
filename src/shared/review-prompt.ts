@@ -44,8 +44,6 @@ export const EMPTY_REVIEW_STATE: ReviewState = {
   done: false,
 }
 
-/** The store's own reviews view, deep-linked; verified to resolve. */
-export const REVIEW_STORE_URL = 'https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf/reviews'
 /** The extension's own support page — "Tell us safely" — not a mailto placeholder. */
 export const REVIEW_FEEDBACK_URL = 'https://www.pageshotter.com/support'
 

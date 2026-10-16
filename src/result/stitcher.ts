@@ -1,3 +1,4 @@
+import { BROWSER } from '../shared/browser'
 import {
   CANVAS_IMAGE_LIMITS,
   fitsOneCanvas,
@@ -71,7 +72,7 @@ export function createStitchPlan(segments: StoredSegment[], finalDocumentHeight:
   if (width > maxTiledImageWidth(TILE_HEIGHT)) {
     throw new PageShotterError(
       'OUTPUT_TOO_WIDE',
-      'This page is wider than Chrome can save in one image. Try reducing browser zoom.',
+      `This page is wider than ${BROWSER.name} can save in one image. Try reducing browser zoom.`,
     )
   }
 
@@ -142,7 +143,7 @@ export function planTiles(totalHeight: number, tileHeight = TILE_HEIGHT): TileBa
 function createCanvas(width: number, height: number): OffscreenCanvas {
   const canvas = new OffscreenCanvas(width, height)
   const context = canvas.getContext('2d', { alpha: false })
-  if (!context) throw new PageShotterError('CANVAS_UNAVAILABLE', 'Chrome could not create the screenshot canvas.')
+  if (!context) throw new PageShotterError('CANVAS_UNAVAILABLE', `${BROWSER.name} could not create the screenshot canvas.`)
   context.fillStyle = '#ffffff'
   context.fillRect(0, 0, width, height)
   return canvas
@@ -150,7 +151,7 @@ function createCanvas(width: number, height: number): OffscreenCanvas {
 
 function canvasContext(canvas: OffscreenCanvas): OffscreenCanvasRenderingContext2D {
   const context = canvas.getContext('2d', { alpha: false })
-  if (!context) throw new PageShotterError('CANVAS_UNAVAILABLE', 'Chrome could not create the screenshot canvas.')
+  if (!context) throw new PageShotterError('CANVAS_UNAVAILABLE', `${BROWSER.name} could not create the screenshot canvas.`)
   return context
 }
 
@@ -432,7 +433,7 @@ function encodingFailure(error: unknown, label: string): PageShotterError {
   if (error instanceof PageShotterError) return error
   return new PageShotterError(
     'IMAGE_ENCODING_FAILED',
-    `Chrome ran out of memory saving this screenshot as a single ${label}. Export it as a PDF, use ` +
+    `${BROWSER.name} ran out of memory saving this screenshot as a single ${label}. Export it as a PDF, use ` +
       `Crop to select a region, or scale the export down.`,
   )
 }

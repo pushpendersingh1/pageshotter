@@ -1,3 +1,4 @@
+import { SHORTCUTS_PAGE, extensionDetailsPage } from '../shared/browser'
 import { listHistory } from '../shared/capture-db'
 import { filledSegments, segmentCount } from './progress-bar'
 import { captureEtaLabel } from '../shared/capture-eta'
@@ -132,7 +133,7 @@ async function drawShortcuts(): Promise<void> {
     )
     chip.hidden = false
     chip.addEventListener('click', () => {
-      void chrome.tabs.create({ url: 'chrome://extensions/shortcuts' })
+      void chrome.tabs.create({ url: SHORTCUTS_PAGE })
       window.close()
     })
   }
@@ -343,7 +344,7 @@ function showProgress(mode: CaptureMode): void {
  * toggle is, rather than on a list the reader then has to search for their own extension in.
  */
 errorAction.addEventListener('click', () => {
-  void chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` })
+  void chrome.tabs.create({ url: extensionDetailsPage() })
 })
 
 function showError(error: CaptureError): void {

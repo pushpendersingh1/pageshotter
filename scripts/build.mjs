@@ -1,14 +1,15 @@
 import { build, context } from 'esbuild'
 import { watch as watchFiles } from 'node:fs'
-import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { clearTimeout, setTimeout } from 'node:timers'
 import { inlineIcons } from './icons.mjs'
+import { buildTarget } from './targets.mjs'
 
 const watch = process.argv.includes('--watch')
 const root = path.resolve(import.meta.dirname, '..')
 const publicDir = path.join(root, 'public')
-const outdir = path.join(root, 'dist')
+const { target, profile, outdir } = buildTarget()
 
 await rm(outdir, { recursive: true, force: true })
 await mkdir(outdir, { recursive: true })
@@ -18,7 +19,30 @@ console.log(`Inlined ${await prepareAssets()} Tabler glyphs`)
 async function prepareAssets() {
   await cp(publicDir, outdir, { recursive: true })
   await injectHtmlFragments(outdir)
+  await nameTheBrowser(outdir)
   return inlineIcons(outdir)
+}
+
+/**
+ * Pages say "Chrome" only inside an element marked with the profile field it stands for --
+ * `<span data-browser="name">Chrome</span>` -- and this fills each one from the target's profile.
+ * `public/` keeps Chrome's wording so the pages still read correctly when opened as they are.
+ * `scripts/verify-pages.mjs` fails on any "Chrome" outside a marker.
+ */
+async function nameTheBrowser(directory) {
+  for (const entry of await readdir(directory)) {
+    if (!entry.endsWith('.html')) continue
+    const file = path.join(directory, entry)
+    const html = await readFile(file, 'utf8')
+    const named = html.replace(
+      /<(\w+) data-browser="(\w+)">[^<]*<\/\1>/g,
+      (_, tag, field) => {
+        if (typeof profile[field] !== 'string') throw new Error(`${entry}: no browser field "${field}"`)
+        return `<${tag} data-browser="${field}">${profile[field]}</${tag}>`
+      },
+    )
+    if (named !== html) await writeFile(file, named)
+  }
 }
 
 async function injectHtmlFragments(directory) {
@@ -54,6 +78,7 @@ const options = {
   format: 'iife',
   platform: 'browser',
   target: 'chrome120',
+  define: { __BROWSER__: JSON.stringify(target) },
   sourcemap: watch,
   minify: !watch,
   logLevel: 'info',

@@ -165,6 +165,31 @@ for (const page of extensionPages) {
   }
 }
 
+/*
+ * The browser's name.
+ *
+ * The same pages ship to more than one browser, and the build names the right one only inside a
+ * `data-browser` marker. A bare "Chrome" in the text would reach Edge users unchanged, so outside
+ * comments and markers the word -- and a `chrome://` address -- fails the check. Every profile also
+ * has to carry each field a marker asks for, or the build stops on that target alone.
+ */
+{
+  const browsers = JSON.parse(await readFile(new URL('../src/shared/browsers.json', import.meta.url), 'utf8'))
+  for (const page of [...extensionPages, 'export-menu']) {
+    const html = await readFile(new URL(`../public/${page}.html`, import.meta.url), 'utf8')
+    for (const [, , field] of html.matchAll(/<(\w+) data-browser="(\w+)">[^<]*<\/\1>/g)) {
+      for (const [target, profile] of Object.entries(browsers)) {
+        if (typeof profile[field] !== 'string') {
+          failures.push(`${page}.html: data-browser="${field}" has no "${field}" in the ${target} profile`)
+        }
+      }
+    }
+    const text = html.replace(/<!--[\s\S]*?-->/g, '').replace(/<(\w+) data-browser="\w+">[^<]*<\/\1>/g, '')
+    for (const [match] of text.matchAll(/\bChrome\b|chrome:\/\//g)) {
+      failures.push(`${page}.html: "${match}" outside a data-browser marker would reach other browsers`)
+    }
+  }
+}
 
 if (failures.length) {
   for (const failure of failures) console.error(failure)
@@ -172,6 +197,6 @@ if (failures.length) {
 } else {
   console.log(
     `Page checks passed: ${extensionPages.length} extension pages boot their theme before first paint, ` +
-      `and every named Tabler and Lucide glyph resolves.`,
+      `every named Tabler and Lucide glyph resolves, and the browser is named only through markers.`,
   )
 }

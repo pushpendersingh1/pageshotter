@@ -1,3 +1,4 @@
+import { BROWSER } from '../shared/browser'
 import { addDegradations } from '../shared/capture-degradation'
 import { CaptureOwnership } from './capture-ownership'
 import { failureOutcome } from './capture-outcome'
@@ -265,7 +266,7 @@ async function handleRuntimeRequest(
 async function createCapture(mode: CaptureMode, providedTab?: chrome.tabs.Tab): Promise<CaptureJob> {
   const tab = providedTab ?? (await chrome.tabs.query({ active: true, currentWindow: true }))[0]
   if (!tab?.id || tab.windowId === undefined) {
-    throw new PageShotterError('NO_ACTIVE_TAB', 'No active Chrome tab was found.')
+    throw new PageShotterError('NO_ACTIVE_TAB', `No active ${BROWSER.name} tab was found.`)
   }
   const tabId = tab.id
 
@@ -532,7 +533,7 @@ async function captureRegion(job: CaptureJob, tabId: number, windowId: number): 
   } catch {
     throw new PageShotterError(
       'REGION_UNAVAILABLE',
-      'Chrome does not allow extensions to run on this page, so a region cannot be selected here. Capture the visible area instead.',
+      `${BROWSER.name} does not allow extensions to run on this page, so a region cannot be selected here. Capture the visible area instead.`,
     )
   }
 
@@ -651,7 +652,7 @@ async function captureRegionBand(
     if (metrics.scrollY > coveredUntil + 1) {
       throw new PageShotterError(
         'SCROLL_GAP',
-        'The page forced Chrome to skip part of the document while scrolling. Disable scroll snapping and retry.',
+        `The page forced ${BROWSER.name} to skip part of the document while scrolling. Disable scroll snapping and retry.`,
       )
     }
 
@@ -772,7 +773,7 @@ async function captureFullPage(job: CaptureJob, tabId: number, windowId: number)
     if (metrics.scrollY > coveredUntil + 1) {
       throw new PageShotterError(
         'SCROLL_GAP',
-        'The page forced Chrome to skip part of the document while scrolling. Disable scroll snapping and retry.',
+        `The page forced ${BROWSER.name} to skip part of the document while scrolling. Disable scroll snapping and retry.`,
       )
     }
 
@@ -906,7 +907,7 @@ async function assertTabIsActive(tabId: number, windowId: number): Promise<void>
   if (activeTab?.id !== tabId) {
     throw new PageShotterError(
       'TAB_NOT_ACTIVE',
-      'The source tab must remain active while Chrome captures it. Return to the page and retry.',
+      `The source tab must remain active while ${BROWSER.name} captures it. Return to the page and retry.`,
     )
   }
 }
@@ -955,7 +956,7 @@ async function captureActiveTab(
         if (quotaFailureCount >= CAPTURE_RETRY_POLICY.maxAttempts) {
           throw new PageShotterError(
             'CAPTURE_RATE_LIMITED',
-            'Chrome is temporarily limiting screenshot requests. Wait a moment and retry.',
+            `${BROWSER.name} is temporarily limiting screenshot requests. Wait a moment and retry.`,
           )
         }
 
@@ -969,7 +970,7 @@ async function captureActiveTab(
       }
     }
 
-    throw new PageShotterError('CAPTURE_RATE_LIMITED', 'Chrome is temporarily limiting screenshot requests.')
+    throw new PageShotterError('CAPTURE_RATE_LIMITED', `${BROWSER.name} is temporarily limiting screenshot requests.`)
   })
   captureQueue = operation.catch(() => undefined)
   return operation
@@ -1003,7 +1004,7 @@ async function recoverInterruptedCaptures(): Promise<void> {
         job.status = 'failed'
         job.error = {
           code: 'CAPTURE_INTERRUPTED',
-          message: 'Chrome interrupted the capture. The page was restored; please retry.',
+          message: `${BROWSER.name} interrupted the capture. The page was restored; please retry.`,
         }
         job.updatedAt = Date.now()
         await sendContentMessage(job.sourceTabId, { type: 'CLEANUP_CAPTURE' }).catch(() => undefined)

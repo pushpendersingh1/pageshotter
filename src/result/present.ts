@@ -21,6 +21,7 @@
  * geometry lives in `chrome-template.ts` (pure) and only drawing and loading live here.
  */
 
+import { BROWSER } from '../shared/browser'
 import { PageShotterError } from '../shared/errors'
 import type { ChromeDensity, ChromeTemplate } from './chrome-template'
 import {
@@ -74,7 +75,7 @@ function createCanvas(width: number, height: number): OffscreenCanvas {
 
 function context(canvas: OffscreenCanvas, alpha = false): OffscreenCanvasRenderingContext2D {
   const ctx = canvas.getContext('2d', { alpha })
-  if (!ctx) throw new PageShotterError('CANVAS_UNAVAILABLE', 'Chrome could not create the presentation canvas.')
+  if (!ctx) throw new PageShotterError('CANVAS_UNAVAILABLE', `${BROWSER.name} could not create the presentation canvas.`)
   return ctx
 }
 

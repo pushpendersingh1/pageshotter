@@ -9,8 +9,10 @@ anything.
 npm run verify     # lint + typecheck + test + page checks + build — run before opening a pull request
 npm test           # vitest, pure functions only
 npm run build      # esbuild → dist/ (unpacked extension, load this in Chrome)
-npm run dev        # rebuild dist/ on every change
+npm run build:edge # esbuild → dist-edge/ (load this in Edge)
+npm run dev        # rebuild dist/ on every change; add `-- --target edge` for dist-edge/
 npm run package    # build + zip → pageshotter-extension.zip
+npm run package:edge # build + zip → pageshotter-extension-edge.zip
 npm run fixtures   # serve tests/fixtures on http://localhost:4173
 ```
 
@@ -93,6 +95,15 @@ and a pull request that breaks one will not be merged.
   store reviewers, and someone else's DOM is a permanent maintenance liability.
 - **Fail safely and say why.** A partial screenshot with an explanation beats an error; an error with
   a plain-English cause beats a silent failure.
+
+## Browsers
+
+One source tree builds for every browser; `src/shared/browsers.json` holds what differs between them
+(the name in copy, the extensions page, the store). Code reads it through `src/shared/browser.ts`,
+chosen at build time by `--target`, never by sniffing the browser at runtime. Pages name the browser
+only inside a marker, `<span data-browser="name">Chrome</span>`, which the build fills per target;
+`verify:pages` fails on a bare "Chrome" anywhere else in a page. Comments that explain how Chrome
+behaves stay as they are.
 
 ## Design
 
