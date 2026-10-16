@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   captureError,
   fileAccessMessage,
+  fileAccessMessageFor,
   isFileUrl,
   isRestrictedPageError,
   isRestrictedPageUrl,
@@ -156,5 +157,29 @@ describe('isRestrictedPageUrl', () => {
     expect(captureError(refusal, 'about:preferences').code).toBe('RESTRICTED_PAGE')
     expect(captureError(new Error('something else'), 'about:preferences').code).toBe('RESTRICTED_PAGE')
     expect(captureError(new Error('something else'), 'https://example.com/').code).toBe('CAPTURE_FAILED')
+  })
+})
+
+describe('local PDFs and Firefox local files', () => {
+  /* The browser's PDF viewer refuses every extension, so file access is not what stops it. */
+  it('treats a PDF as a page the browser keeps extensions out of, local or not', () => {
+    expect(isRestrictedPageUrl('file:///Users/me/Downloads/report.pdf')).toBe(true)
+    expect(isRestrictedPageUrl('https://example.com/a.PDF?download=1#page=2')).toBe(true)
+    expect(isRestrictedPageUrl('file:///Users/me/notes.html')).toBe(false)
+    expect(isRestrictedPageUrl('https://example.com/pdf-guide')).toBe(false)
+  })
+
+  /*
+   * Firefox 153 offers its local-files setting only to extensions that request file access, and
+   * PageShotter does not, so there is nothing to send anyone to.
+   */
+  it('names no setting where the browser has none to offer', () => {
+    for (const captured of [true, false]) {
+      const message = fileAccessMessageFor('Firefox', null, captured)
+      expect(message).toContain("can't read local files in Firefox")
+      expect(message).not.toContain('permission')
+      expect(message).not.toContain('about:addons')
+      expect(message.includes('visible area')).toBe(captured)
+    }
   })
 })

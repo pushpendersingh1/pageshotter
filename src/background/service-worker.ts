@@ -33,6 +33,7 @@ import {
   captureError,
   fileAccessMessage,
   isFileUrl,
+  isRestrictedPageUrl,
   PageShotterError,
   visibleAreaFallbackAvailable,
 } from '../shared/errors'
@@ -332,7 +333,8 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab): Promise<void> 
          * page this is, and Chrome's own answer settles whether the toggle is off, so neither fact
          * is inferred from the error text.
          */
-        fileAccessDenied = isFileUrl(tab.url) && !(await chrome.extension.isAllowedFileSchemeAccess())
+        fileAccessDenied =
+          isFileUrl(tab.url) && !isRestrictedPageUrl(tab.url) && !(await chrome.extension.isAllowedFileSchemeAccess())
         if (!fileAccessDenied && !visibleAreaFallbackAvailable(failure, job.mode)) {
           throw new PageShotterError(failure.code, failure.message)
         }

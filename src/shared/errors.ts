@@ -65,7 +65,16 @@ const RESTRICTED_URL_PREFIXES = [
 export function isRestrictedPageUrl(url: string | undefined): boolean {
   if (typeof url !== 'string') return false
   const address = url.toLowerCase()
-  return RESTRICTED_URL_PREFIXES.some((prefix) => address.startsWith(prefix))
+  return RESTRICTED_URL_PREFIXES.some((prefix) => address.startsWith(prefix)) || isPdfUrl(address)
+}
+
+/**
+ * A PDF is shown in the browser's own viewer, which no extension may script -- in Chrome and Edge as
+ * much as in Firefox, and whether or not the file is local. So a local PDF is a restricted page, not a
+ * file-access problem: turning file access on would not let it scroll.
+ */
+function isPdfUrl(address: string): boolean {
+  return (address.split(/[?#]/)[0] ?? '').endsWith('.pdf')
 }
 
 const RESTRICTED_PAGE_MESSAGE =
@@ -119,8 +128,6 @@ export function isFileUrl(url: string | undefined): boolean {
   return typeof url === 'string' && url.toLowerCase().startsWith('file://')
 }
 
-const FILE_ACCESS_REMEDY = BROWSER.fileAccessRemedy
-
 /**
  * What to say when a capture of a local file was refused because the toggle is off.
  *
@@ -130,8 +137,21 @@ const FILE_ACCESS_REMEDY = BROWSER.fileAccessRemedy
  * neither claims Chrome disallows extensions here, which was the false part.
  */
 export function fileAccessMessage(visibleAreaCaptured: boolean): string {
+  return fileAccessMessageFor(BROWSER.name, BROWSER.fileAccessRemedy, visibleAreaCaptured)
+}
+
+/**
+ * The same, for any browser. Where the browser has no setting to offer (`remedy` null) the message
+ * says so plainly rather than asking for a permission nobody can grant.
+ */
+export function fileAccessMessageFor(browserName: string, remedy: string | null, visibleAreaCaptured: boolean): string {
+  const partial = visibleAreaCaptured ? ' Content outside the viewport is not included.' : ''
+  if (remedy === null) {
+    return visibleAreaCaptured
+      ? `PageShotter can't read local files in ${browserName}, so it captured only the visible area.${partial}`
+      : `PageShotter can't read local files in ${browserName}.`
+  }
   return visibleAreaCaptured
-    ? 'PageShotter needs your permission to read local files, so it captured only the visible area. ' +
-        `Content outside the viewport is not included. ${FILE_ACCESS_REMEDY}`
-    : `PageShotter needs your permission to read local files. ${FILE_ACCESS_REMEDY}`
+    ? `PageShotter needs your permission to read local files, so it captured only the visible area.${partial} ${remedy}`
+    : `PageShotter needs your permission to read local files. ${remedy}`
 }

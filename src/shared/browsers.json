@@ -27,6 +27,6 @@
     "pinHint": "Firefox keeps new extensions behind the puzzle-piece icon in the toolbar. Click it, then the gear beside PageShotter, and choose Pin to Toolbar to keep the button where you can reach it.",
     "extensionsPageOpenable": false,
     "detailsLabel": "Manage",
-    "fileAccessRemedy": "Open about:addons, click PageShotter, and on its Permissions tab turn on \"Access local files on your computer\"."
+    "fileAccessRemedy": null
   }
 }

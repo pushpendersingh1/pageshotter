@@ -34,8 +34,13 @@ export interface BrowserProfile {
   extensionsPageOpenable: boolean
   /** What the extensions page calls the control that opens one extension's own page. */
   detailsLabel: string
-  /** The steps to the local-file setting, which each browser names and places differently. */
-  fileAccessRemedy: string
+  /**
+   * The steps to the local-file setting, which each browser names and places differently. Null in
+   * Firefox: since 153 it offers "Access local files on your computer" only to an extension that
+   * requests file access, and PageShotter requests `activeTab` alone, so there is no setting to send
+   * anyone to -- and an extension may not open `about:addons` to look.
+   */
+  fileAccessRemedy: string | null
 }
 
 /**
