@@ -127,7 +127,7 @@ async function reportCommandFailure(
   mode: CaptureMode,
 ): Promise<void> {
   try {
-    const failure = captureError(error)
+    const failure = captureError(error, tab.url)
     const job: CaptureJob = {
       id: crypto.randomUUID(),
       mode,
@@ -324,7 +324,7 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab): Promise<void> 
       try {
         await ensureContentScript(tabId)
       } catch (error) {
-        const failure = captureError(error)
+        const failure = captureError(error, tab.url)
         /*
          * A local file is not a page Chrome forbids extensions on, but its refusal is worded like
          * one, so it used to be reported as one -- and the remedy that message implies is "give up",
@@ -419,7 +419,7 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab): Promise<void> 
     await throwIfCancelled(job.id)
     await openResultTab(job.id, windowId)
   } catch (error) {
-    const failure = captureError(error)
+    const failure = captureError(error, tab.url)
     // A stored capture is never re-reported as a failure. Everything after a persisted completion
     // is delivery -- opening a tab, focusing a window -- and in incognito that is exactly where
     // things go wrong. Throwing the screenshot away at that point loses work that is already on

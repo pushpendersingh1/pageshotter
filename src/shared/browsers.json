@@ -4,13 +4,29 @@
     "extensionsPage": "chrome://extensions",
     "storeName": "Chrome Web Store",
     "reviewUrl": "https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf/reviews",
-    "pinHint": "Chrome hides new extensions behind the puzzle-piece icon in the toolbar. Click it, then the pin beside PageShotter, to keep the button where you can reach it."
+    "pinHint": "Chrome hides new extensions behind the puzzle-piece icon in the toolbar. Click it, then the pin beside PageShotter, to keep the button where you can reach it.",
+    "extensionsPageOpenable": true,
+    "detailsLabel": "Details",
+    "fileAccessRemedy": "Open chrome://extensions, click Details on PageShotter, and turn on \"Allow access to file URLs\"."
   },
   "edge": {
     "name": "Edge",
     "extensionsPage": "edge://extensions",
     "storeName": "Edge Add-ons",
     "reviewUrl": null,
-    "pinHint": "Edge hides new extensions behind the puzzle-piece icon in the toolbar. Click it, then the eye icon beside PageShotter, to keep the button where you can reach it."
+    "pinHint": "Edge hides new extensions behind the puzzle-piece icon in the toolbar. Click it, then the eye icon beside PageShotter, to keep the button where you can reach it.",
+    "extensionsPageOpenable": true,
+    "detailsLabel": "Details",
+    "fileAccessRemedy": "Open edge://extensions, click Details on PageShotter, and turn on \"Allow access to file URLs\"."
+  },
+  "firefox": {
+    "name": "Firefox",
+    "extensionsPage": "about:addons",
+    "storeName": "Firefox Add-ons",
+    "reviewUrl": null,
+    "pinHint": "Firefox keeps new extensions behind the puzzle-piece icon in the toolbar. Click it, then the gear beside PageShotter, and choose Pin to Toolbar to keep the button where you can reach it.",
+    "extensionsPageOpenable": false,
+    "detailsLabel": "Manage",
+    "fileAccessRemedy": "Open about:addons, click PageShotter, and on its Permissions tab turn on \"Access local files on your computer\"."
   }
 }

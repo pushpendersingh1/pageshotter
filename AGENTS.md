@@ -10,9 +10,11 @@ npm run verify     # lint + typecheck + test + page checks + build — run befor
 npm test           # vitest, pure functions only
 npm run build      # esbuild → dist/ (unpacked extension, load this in Chrome)
 npm run build:edge # esbuild → dist-edge/ (load this in Edge)
+npm run build:firefox # esbuild → dist-firefox/ (load as a temporary add-on in Firefox)
 npm run dev        # rebuild dist/ on every change; add `-- --target edge` for dist-edge/
 npm run package    # build + zip → pageshotter-extension.zip
 npm run package:edge # build + zip → pageshotter-extension-edge.zip
+npm run package:firefox # build + zip → pageshotter-extension-firefox.zip
 npm run fixtures   # serve tests/fixtures on http://localhost:4173
 ```
 
@@ -104,6 +106,20 @@ chosen at build time by `--target`, never by sniffing the browser at runtime. Pa
 only inside a marker, `<span data-browser="name">Chrome</span>`, which the build fills per target;
 `verify:pages` fails on a bare "Chrome" anywhere else in a page. Comments that explain how Chrome
 behaves stay as they are.
+
+- **The manifest is Chrome's**, and Edge ships it unchanged. Firefox's differences are applied by
+  `manifestFor` in `scripts/targets.mjs`: an event page instead of a service worker, the AMO ID, the
+  minimum version and the data-collection declaration. **A permission never differs between
+  browsers**; a test holds that.
+- **Firefox won't let an extension open `about:addons`.** Shortcuts go through
+  `commands.openShortcutSettings()` (`openShortcutSettings` in `browser.ts`), and anything that
+  would link to the extension's own page states the steps in words instead
+  (`extensionsPageOpenable`).
+- **Restricted pages are recognised by error text and, after a failure, by the tab's address**
+  (`isRestrictedPageUrl`). Firefox words every refusal the same way, so its text alone can't tell a
+  forbidden page from a fault.
+- `npx web-ext lint --source-dir dist-firefox` should report nothing. It is run ad hoc rather than
+  added as a dependency. Build DOM from nodes, not `innerHTML`; AMO review reads every assignment.
 
 ## Design
 

@@ -11,6 +11,8 @@
     "build:edge": "node scripts/build.mjs --target edge",
     "package": "node scripts/build.mjs && node scripts/package.mjs",
     "package:edge": "node scripts/build.mjs --target edge && node scripts/package.mjs --target edge",
+    "build:firefox": "node scripts/build.mjs --target firefox",
+    "package:firefox": "node scripts/build.mjs --target firefox && node scripts/package.mjs --target firefox",
     "dev": "node scripts/build.mjs --watch",
     "fixtures": "npx serve tests/fixtures -l 4173",
     "lint": "eslint .",
@@ -18,7 +20,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "verify:pages": "node scripts/verify-pages.mjs",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run verify:pages && npm run build && npm run build:edge"
+    "verify": "npm run lint && npm run typecheck && npm test && npm run verify:pages && npm run build && npm run build:edge && npm run build:firefox"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

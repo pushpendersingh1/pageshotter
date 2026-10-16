@@ -4,12 +4,12 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { clearTimeout, setTimeout } from 'node:timers'
 import { inlineIcons } from './icons.mjs'
-import { buildTarget } from './targets.mjs'
+import { buildTarget, manifestFor } from './targets.mjs'
 
 const watch = process.argv.includes('--watch')
 const root = path.resolve(import.meta.dirname, '..')
 const publicDir = path.join(root, 'public')
-const { target, profile, outdir } = buildTarget()
+const { target, profile, outdir, esbuildTarget } = buildTarget()
 
 await rm(outdir, { recursive: true, force: true })
 await mkdir(outdir, { recursive: true })
@@ -20,6 +20,7 @@ async function prepareAssets() {
   await cp(publicDir, outdir, { recursive: true })
   await injectHtmlFragments(outdir)
   await nameTheBrowser(outdir)
+  await writeManifest(outdir)
   return inlineIcons(outdir)
 }
 
@@ -43,6 +44,14 @@ async function nameTheBrowser(directory) {
     )
     if (named !== html) await writeFile(file, named)
   }
+}
+
+async function writeManifest(directory) {
+  const file = path.join(directory, 'manifest.json')
+  const original = JSON.parse(await readFile(file, 'utf8'))
+  const manifest = manifestFor(target, original)
+  // Untouched targets keep the file byte for byte, so Chrome's package never drifts on formatting.
+  if (manifest !== original) await writeFile(file, `${JSON.stringify(manifest, null, 2)}\n`)
 }
 
 async function injectHtmlFragments(directory) {
@@ -77,8 +86,8 @@ const options = {
   entryNames: '[name]',
   format: 'iife',
   platform: 'browser',
-  target: 'chrome120',
-  define: { __BROWSER__: JSON.stringify(target) },
+  target: esbuildTarget,
+  define: { __BROWSER_PROFILE__: JSON.stringify(profile) },
   sourcemap: watch,
   minify: !watch,
   logLevel: 'info',

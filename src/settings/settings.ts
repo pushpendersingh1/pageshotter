@@ -1,4 +1,4 @@
-import { BROWSER, SHORTCUTS_PAGE } from '../shared/browser'
+import { BROWSER, openShortcutSettings } from '../shared/browser'
 import { DEFAULT_HISTORY_LIMITS, HISTORY_RETENTION_CHOICES, formatBytes } from '../shared/history-policy'
 import { pruneHistory } from '../shared/history-prune'
 import {
@@ -220,7 +220,7 @@ async function initialise(): Promise<void> {
   // Chrome owns the binding: an extension can read it and link to the page that changes it, and
   // nothing more. Saying so plainly beats a control here that would only ever open that page.
   requiredElement<HTMLButtonElement>('open-shortcuts').addEventListener('click', () => {
-    void chrome.tabs.create({ url: SHORTCUTS_PAGE })
+    openShortcutSettings()
   })
   await drawShortcut()
 

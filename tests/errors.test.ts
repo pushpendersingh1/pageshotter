@@ -4,6 +4,7 @@ import {
   fileAccessMessage,
   isFileUrl,
   isRestrictedPageError,
+  isRestrictedPageUrl,
   PageShotterError,
   visibleAreaFallbackAvailable,
 } from '../src/shared/errors'
@@ -121,5 +122,39 @@ describe('fileAccessMessage', () => {
   it('admits the screenshot is partial only when there is a screenshot', () => {
     expect(fileAccessMessage(true)).toContain('visible area')
     expect(fileAccessMessage(false)).not.toContain('visible area')
+  })
+})
+
+describe('isRestrictedPageUrl', () => {
+  it('knows every browser\'s own pages and stores', () => {
+    for (const url of [
+      'chrome://settings',
+      'edge://settings',
+      'about:preferences',
+      'about:blank',
+      'moz-extension://abc/popup.html',
+      'https://addons.mozilla.org/en-US/firefox/',
+      'https://microsoftedge.microsoft.com/addons/detail/x',
+      'https://chromewebstore.google.com/detail/x',
+    ]) {
+      expect(isRestrictedPageUrl(url), url).toBe(true)
+    }
+  })
+
+  it('leaves ordinary pages, local files and a missing address alone', () => {
+    for (const url of ['https://example.com/about:', 'file:///tmp/a.html', 'https://addons.mozilla.org.example.com/', undefined]) {
+      expect(isRestrictedPageUrl(url), String(url)).toBe(false)
+    }
+  })
+
+  /*
+   * Firefox says "Missing host permission for the tab" on every page it keeps extensions out of,
+   * and on nothing that names the page -- so the address decides, and only after a failure.
+   */
+  it('turns Firefox\'s unnamed refusal into the restricted-page message when the address says so', () => {
+    const refusal = new Error('Missing host permission for the tab')
+    expect(captureError(refusal, 'about:preferences').code).toBe('RESTRICTED_PAGE')
+    expect(captureError(new Error('something else'), 'about:preferences').code).toBe('RESTRICTED_PAGE')
+    expect(captureError(new Error('something else'), 'https://example.com/').code).toBe('CAPTURE_FAILED')
   })
 })

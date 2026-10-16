@@ -71,10 +71,14 @@ npm run dev           # rebuild dist/ on every change
 npm run package       # build + zip for the Chrome Web Store
 npm run build:edge    # build dist-edge/ for Microsoft Edge
 npm run package:edge  # build + zip for Edge Add-ons
+npm run build:firefox # build dist-firefox/ for Firefox
+npm run package:firefox # build + zip for Firefox Add-ons
 ```
 
 Then open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, choose
-**Load unpacked** and select `dist/` (or `dist-edge/`). Chrome must keep the source tab active during a full-page capture, because
+**Load unpacked** and select `dist/` (or `dist-edge/`). In Firefox 153 or later, open
+`about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on** and pick
+`dist-firefox/manifest.json`. Chrome must keep the source tab active during a full-page capture, because
 `tabs.captureVisibleTab()` only captures the active tab.
 
 `npm run fixtures` serves the difficult-page test corpus at `http://localhost:4173`: sticky headers,

@@ -48,7 +48,7 @@ export function buildReview(count: number, onClose: () => void, card: HTMLElemen
     b.dataset.n = String(i)
     b.dataset.rv = 'rate'
     b.setAttribute('aria-label', `Rate ${i} star${i > 1 ? 's' : ''} on the ${BROWSER.storeName}`)
-    b.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${STAR_PATH}"/></svg>`
+    b.append(starGlyph())
     starsEl.append(b)
   }
   const stars = [...starsEl.children] as HTMLElement[]
@@ -288,4 +288,16 @@ export function closePop(pop: HTMLElement, anchor: HTMLElement): void {
 /** Escape inside the popover acts as "Not now", exactly as it does in the dialog. */
 export function popoverLater(pop: HTMLElement): void {
   pop.querySelector<HTMLElement>('[data-rv="later"]')?.click()
+}
+
+/** Built as elements rather than parsed from a string, so no `innerHTML` is involved. */
+function starGlyph(): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('fill', 'currentColor')
+  svg.setAttribute('aria-hidden', 'true')
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+  path.setAttribute('d', STAR_PATH)
+  svg.append(path)
+  return svg
 }

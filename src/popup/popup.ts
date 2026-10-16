@@ -1,4 +1,4 @@
-import { SHORTCUTS_PAGE, extensionDetailsPage } from '../shared/browser'
+import { extensionDetailsPage, openShortcutSettings } from '../shared/browser'
 import { listHistory } from '../shared/capture-db'
 import { filledSegments, segmentCount } from './progress-bar'
 import { captureEtaLabel } from '../shared/capture-eta'
@@ -133,7 +133,7 @@ async function drawShortcuts(): Promise<void> {
     )
     chip.hidden = false
     chip.addEventListener('click', () => {
-      void chrome.tabs.create({ url: SHORTCUTS_PAGE })
+      openShortcutSettings()
       window.close()
     })
   }
@@ -343,8 +343,9 @@ function showProgress(mode: CaptureMode): void {
  * navigate a tab there, and `?id=` lands on PageShotter's own details page, where the file access
  * toggle is, rather than on a list the reader then has to search for their own extension in.
  */
+const detailsPage = extensionDetailsPage()
 errorAction.addEventListener('click', () => {
-  void chrome.tabs.create({ url: extensionDetailsPage() })
+  if (detailsPage) void chrome.tabs.create({ url: detailsPage })
 })
 
 function showError(error: CaptureError): void {
@@ -357,7 +358,8 @@ function showError(error: CaptureError): void {
   errorMessage.textContent = error.message
   // Telling someone to turn on a toggle without taking them to it leaves them hunting through
   // chrome://extensions for their own extension.
-  errorAction.hidden = error.code !== 'FILE_ACCESS_DENIED'
+  // Where the browser will not open its extensions page, the message's own steps are the remedy.
+  errorAction.hidden = error.code !== 'FILE_ACCESS_DENIED' || detailsPage === null
 }
 
 function showActions(): void {
