@@ -159,7 +159,14 @@ export type ContentRequest =
    * neither can change during a capture -- carrying them on every position message would invite
    * exactly that.
    */
-  | { type: 'PREPARE_CAPTURE'; jobId: string; sectionWaitMs?: number; imageWaitMs?: number }
+  | {
+      type: 'PREPARE_CAPTURE'
+      jobId: string
+      sectionWaitMs?: number
+      imageWaitMs?: number
+      /** Walk the page once before the first section so its lazy images load together. Full page only. */
+      warmUp?: boolean
+    }
   | { type: 'COLLECT_PAGE_CONTENT' }
   /**
    * `depthLimit` is how deep this capture will actually go, which is not always the bottom of the
@@ -195,6 +202,11 @@ export type ContentResponse =
        * between the click and the capture.
        */
       pageUrl?: string
+      /**
+       * The page's height when the capture began, before the warm-up walk had a chance to grow it.
+       * The long-page policy freezes this one, not the height `metrics` reports after the walk.
+       */
+      startingDocumentHeight?: number
       /**
        * Where the image's own (0, 0) sits, in the same CSS-pixel space the harvested rects are in,
        * so the PDF writer can subtract it. Reported by the page rather than derived by the worker
