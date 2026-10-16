@@ -45,7 +45,7 @@
         'mutating-page','authenticated-demo','iframe','safety-limit','short-page-with-bottom-bar',
         'scrollbar-forced','seam-ruler','editor-band-blur','tall-fixed-header','narrow-scroller','fixed-background',
         'scroll-promoted-header','image-wait-ladder',
-        'over-limit-ruler','region-select','region-select-tall','element-select','pdf-layers',
+        'over-limit-ruler','canvas-area-ruler','region-select','region-select-tall','element-select','pdf-layers',
         'faded-scroller','virtualised-scroller','chrome-outside-scroller',
         'scroll-reveal-text','offscreen-video','local-file-page','scroll-snapping','endless-feed',
         'unfindable-scroller','degraded-capture','present-grid','smooth-scroll-hijack'
@@ -385,6 +385,44 @@
         const banner = `<div style="position:absolute;top:${height - 500}px;left:0;right:0;background:#17211b;color:#fff;font:16px/1.4 system-ui;padding:14px">${(height - 500).toLocaleString()} — the bottom of the page. If this is in your screenshot, tiled capture reached the whole thing.</div>`
         fixture.innerHTML = `<div style="position:relative;height:${height}px;background:linear-gradient(#fff,#1c3f2f)">${rules}${ceilingMark}${banner}</div>`
         document.querySelector('#fixture-notes').textContent += ` · ${height.toLocaleString()} CSS px · expect the final label to read ${(height - 500).toLocaleString()}, not 32,767 · PNG/JPEG/Copy are expected to be unavailable at this size — PDF and Crop are the exports`
+      }
+      if (fixtureName === 'canvas-area-ruler') {
+        /*
+         * The one place the browsers' canvas limits differ. Both allow 65,535 px per axis; Chrome's
+         * area is 2^28 px and Firefox's nearly 2^29 (src/shared/browser.ts). So a capture whose
+         * image lands between the two areas, under the axis limit, is one PNG in Firefox and too
+         * large for one in Chrome. That window only exists when the capture is wider than
+         * 2^28 / 65,535 = 4,096 image px, so the page sizes itself from this window and says so when
+         * it is too narrow. Labelled every 500 CSS px: a blank or missing stretch in Firefox's PNG
+         * names the offset where a wrong limit cut it.
+         */
+        const CHROME_AREA = 2 ** 28
+        const FIREFOX_AREA = 2 ** 29 - 2 ** 18
+        const AXIS = 65535
+        const density = devicePixelRatio
+        const imageWidth = Math.round(document.documentElement.clientWidth * density)
+        const chromeRows = Math.floor(CHROME_AREA / imageWidth)
+        const firefoxRows = Math.min(AXIS, Math.floor(FIREFOX_AREA / imageWidth))
+        const fixtureTop = fixture.getBoundingClientRect().top + scrollY
+        if (firefoxRows <= chromeRows) {
+          fixture.innerHTML = `<div style="padding:24px;font:16px/1.5 system-ui;background:#fff8e6;border:1px solid #e0b84c">This window captures <b>${imageWidth.toLocaleString()} px</b> wide. Below 4,097 px every capture meets the 65,535 px axis limit before any area limit, so Chrome and Firefox behave identically here and this fixture has nothing to show. Widen the window (an external display) until the width passes 4,096 px, then reload.</div>`
+          document.querySelector('#fixture-notes').textContent += ` · ${imageWidth.toLocaleString()} px wide: too narrow to separate the browsers`
+        } else {
+          // Midway between the two areas, so neither rounding nor a scrollbar tips it over either.
+          const targetRows = Math.floor((chromeRows + firefoxRows) / 2)
+          const height = Math.ceil(targetRows / density - fixtureTop)
+          const rules = Array.from({length: Math.floor(height / 500)}, (_, i) => {
+            const top = i * 500
+            return `<div style="position:absolute;top:${top}px;left:0;right:0;height:1px;background:#e6522c"><span style="background:#fff;color:#111;font:12px/1 monospace;padding:1px 5px">${top.toLocaleString()}</span></div>`
+          }).join('')
+          const chromeLine = Math.round(chromeRows / density - fixtureTop)
+          const chromeMark = `<div style="position:absolute;top:${chromeLine}px;left:0;right:0;height:3px;background:#a3132a"><span style="background:#a3132a;color:#fff;font:13px/1.4 system-ui;padding:4px 8px">${chromeLine.toLocaleString()} — Chrome's canvas area ends here at this width. Firefox's PNG must continue past it.</span></div>`
+          const banner = `<div style="position:absolute;top:${height - 120}px;left:0;right:0;background:#17211b;color:#fff;font:16px/1.4 system-ui;padding:14px">${(height - 120).toLocaleString()} — the bottom. In Firefox this must be in the PNG.</div>`
+          fixture.innerHTML = `<div style="position:relative;height:${height}px;background:linear-gradient(#fff,#1c3f2f)">${rules}${chromeMark}${banner}</div>`
+          // Measured after layout, so the page's own margins are in the number the result page will show.
+          const imageHeight = Math.round(document.documentElement.scrollHeight * density)
+          document.querySelector('#fixture-notes').textContent += ` · expect about ${imageWidth.toLocaleString()} × ${imageHeight.toLocaleString()} px, between Chrome's ${chromeRows.toLocaleString()} and Firefox's ${firefoxRows.toLocaleString()} rows · Firefox: PNG available and ends at the dark banner · Chrome and Edge: PNG/JPEG unavailable, PDF complete`
+        }
       }
       if (fixtureName === 'region-select') {
         // Self-announcing in the seam-ruler tradition: the defect region select can produce is a
