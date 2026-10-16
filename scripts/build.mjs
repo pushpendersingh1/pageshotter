@@ -116,6 +116,18 @@ if (watch) {
       )
     }, 50)
   })
+  /*
+   * The browser profile is defined into the bundle and the build scripts are loaded once, so a
+   * watcher that outlives a change to either keeps building with what it started with. That is how
+   * an Edge build once shipped `__BROWSER_PROFILE__` undefined and every icon empty. Stopping loudly
+   * beats a dist/ that looks current and is not.
+   */
+  for (const stale of [path.join(root, 'src/shared/browsers.json'), path.join(root, 'scripts')]) {
+    watchFiles(stale, { recursive: true }, () => {
+      console.error(`${path.relative(root, stale)} changed: restart \`npm run dev\` to build with it.`)
+      process.exit(1)
+    })
+  }
   console.log('Watching extension sources...')
 } else {
   await build(options)
