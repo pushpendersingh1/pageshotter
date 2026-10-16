@@ -1,9 +1,12 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { zipSync } from 'fflate'
+import { assertCleanTree, writeSourcePackage } from './source-package.mjs'
 import { buildTarget } from './targets.mjs'
 
-const { outdir: dist, zip } = buildTarget()
+const { target, outdir: dist, zip } = buildTarget()
+const withSource = process.argv.includes('--source')
+if (withSource) assertCleanTree()
 const files = {}
 
 /** Every entry is stamped with one fixed timestamp so the same `dist/` always zips to the same
@@ -25,3 +28,14 @@ async function collect(directory, prefix = '') {
 await collect(dist)
 await writeFile(zip, zipSync(files, { level: 9 }))
 console.log(`Packaged ${Object.keys(files).length} files in ${path.basename(zip)}`)
+
+/*
+ * `--source` also writes what AMO needs to rebuild that zip. Opt-in rather than tied to the Firefox
+ * target, because a reviewer runs this same script from the unpacked source, where there is no git.
+ */
+if (withSource) {
+  if (target !== 'firefox') throw new Error('--source is the AMO source package; it goes with --target firefox')
+  const source = zip.replace(/\.zip$/, '-source.zip')
+  const commit = await writeSourcePackage(source)
+  console.log(`Wrote ${path.basename(source)} from ${commit.slice(0, 7)}`)
+}
