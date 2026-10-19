@@ -38,13 +38,24 @@
   "commands": {
     "capture-full-page": {
       "suggested_key": {
-        "default": "Alt+Shift+P",
-        "mac": "Alt+Shift+P"
+        "default": "Alt+Shift+7",
+        "mac": "Command+Shift+7"
       },
       "description": "Capture the full page"
     },
     "capture-visible-area": {
+      "suggested_key": {
+        "default": "Alt+Shift+8",
+        "mac": "Command+Shift+8"
+      },
       "description": "Capture the visible area"
+    },
+    "capture-selection": {
+      "suggested_key": {
+        "default": "Alt+Shift+9",
+        "mac": "Command+Shift+9"
+      },
+      "description": "Select a region"
     }
   }
 }

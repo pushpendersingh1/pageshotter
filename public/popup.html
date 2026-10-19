@@ -59,17 +59,16 @@
             <button id="shortcut-visible" class="kbd" type="button" hidden></button>
           </div>
 
-          <!--
-            Selection has no manifest command, so it carries no chip. An "unset" chip here would offer
-            a binding Chrome's shortcut page has nothing to bind.
-          -->
-          <button id="capture-region" class="btn cell" type="button">
-            <span class="ico" aria-hidden="true">
-              <svg class="icon" data-icon="capture" width="17" height="17" viewBox="0 0 24 24" focusable="false"></svg>
-            </span>
-            <span class="label">Selection</span>
-            <span class="sub">Drag a region</span>
-          </button>
+          <div class="slot">
+            <button id="capture-region" class="btn cell" type="button">
+              <span class="ico" aria-hidden="true">
+                <svg class="icon" data-icon="capture" width="17" height="17" viewBox="0 0 24 24" focusable="false"></svg>
+              </span>
+              <span class="label">Selection</span>
+              <span class="sub">Drag a region</span>
+            </button>
+            <button id="shortcut-region" class="kbd" type="button" hidden></button>
+          </div>
         </div>
 
         <!-- Both open the Batch page, which picks the pages, holds the options and shows progress. -->
