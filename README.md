@@ -10,7 +10,8 @@
 ### Full-page screenshots, taken and kept on your own computer.
 
 Capture a whole page, the visible area or a selection, then edit it and export PNG, JPEG, WebP, or a
-PDF with searchable text and clickable links. For Chrome and Firefox. No account, nothing uploaded.
+PDF with searchable text and clickable links. For Chrome, Brave, Firefox and Zen. No account,
+nothing uploaded.
 
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20Web%20Store&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf) [![Chrome users](https://img.shields.io/chrome-web-store/users/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20users&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf) [![Chrome rating](https://img.shields.io/chrome-web-store/rating/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20rating&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf/reviews) [![Firefox Add-ons](https://img.shields.io/amo/v/pageshotter?label=Firefox%20Add-ons&color=FF7139)](https://addons.mozilla.org/firefox/addon/pageshotter/)<br />
 [![verify](https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml/badge.svg)](https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/github/license/pushpendersingh1/pageshotter?color=1B1A17)](LICENSE) [![No account](https://img.shields.io/badge/account-none-1B1A17)](#privacy) [![Nothing uploaded](https://img.shields.io/badge/uploads-none-1B1A17)](#privacy)
@@ -21,24 +22,26 @@ PDF with searchable text and clickable links. For Chrome and Firefox. No account
 <tr>
 <td align="center" width="230">
 <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf">
-<img src=".github/assets/brands/chrome.svg" alt="" width="40" height="40" /><br />
+<img src=".github/assets/brands/chrome.svg" alt="Chrome" width="40" height="40" />&nbsp;
+<img src=".github/assets/brands/brave.svg" alt="Brave" width="40" height="40" /><br />
 <strong>Add to Chrome</strong>
 </a><br />
-<sub>Chrome Web Store · Chrome 120+</sub>
+<sub>Chrome Web Store<br />Chrome 120+ and Brave</sub>
 </td>
 <td align="center" width="230">
 <a href="https://addons.mozilla.org/firefox/addon/pageshotter/">
-<img src=".github/assets/brands/firefox.svg" alt="" width="40" height="40" /><br />
+<img src=".github/assets/brands/firefox.svg" alt="Firefox" width="40" height="40" />&nbsp;
+<img src=".github/assets/brands/zen.svg" alt="Zen" width="40" height="40" /><br />
 <strong>Add to Firefox</strong>
 </a><br />
-<sub>Firefox Add-ons · desktop, 153+</sub>
+<sub>Firefox Add-ons<br />Firefox 153+ and Zen, on desktop</sub>
 </td>
 <td align="center" width="230">
 <a href="#build-and-load-it-yourself">
-<img src=".github/assets/brands/edge.svg" alt="" width="40" height="40" /><br />
+<img src=".github/assets/brands/edge.svg" alt="Edge" width="40" height="40" /><br />
 <strong>Edge</strong>
 </a><br />
-<sub>Edge Add-ons listing in review</sub>
+<sub>Edge Add-ons<br />listing in review</sub>
 </td>
 </tr>
 </table>
@@ -193,6 +196,6 @@ To report a security problem, see [`SECURITY.md`](SECURITY.md); please do not op
 ## License
 
 The code is [MIT](LICENSE). The PageShotter name and logo are not covered by that license; see
-[`TRADEMARKS.md`](TRADEMARKS.md). The Chrome, Firefox and Edge logos belong to their owners and appear
-here only to show where PageShotter can be installed. Bundled third-party components and their licenses are listed in
+[`TRADEMARKS.md`](TRADEMARKS.md). The browser logos belong to their owners and appear here only to show
+where PageShotter can be installed. Bundled third-party components and their licenses are listed in
 [`public/THIRD_PARTY_NOTICES.txt`](public/THIRD_PARTY_NOTICES.txt).
