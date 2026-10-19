@@ -41,6 +41,7 @@ const tabsAccessButton = requiredElement<HTMLButtonElement>('tabs-access')
 const tabsAllButton = requiredElement<HTMLButtonElement>('tabs-all')
 const tabsNoneButton = requiredElement<HTMLButtonElement>('tabs-none')
 const startDialogHow = requiredElement<HTMLParagraphElement>('start-dialog-how')
+const startTour = requiredElement<HTMLElement>('start-tour')
 const urlsInput = requiredElement<HTMLTextAreaElement>('urls')
 const urlSummary = requiredElement<HTMLParagraphElement>('url-summary')
 const modeGroup = requiredElement<HTMLElement>('batch-mode')
@@ -239,10 +240,11 @@ async function initialise(): Promise<void> {
 function drawSource(): void {
   urlsPanel.hidden = source !== 'urls'
   tabsPanel.hidden = source !== 'tabs'
+  startTour.dataset.source = source
   startDialogHow.textContent =
     source === 'tabs'
-      ? "PageShotter switches to each tab you picked, in turn, and captures it while it is on screen. Please don't switch tabs or windows until the batch finishes."
-      : "PageShotter opens each page in a new tab beside this one and captures it while it is on screen. Please don't switch tabs or windows until the batch finishes."
+      ? 'PageShotter brings each tab you picked to the front, one at a time, and captures it.'
+      : 'PageShotter opens each page in a tab beside this one, one at a time, and captures it.'
   drawSummary()
   scheduleTabRefresh()
 }

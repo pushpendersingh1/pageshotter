@@ -65,3 +65,105 @@
   .batch-actions { flex-wrap: wrap; }
   .batch-actions .note { flex-basis: 100%; }
 }
+
+/*
+ * The start dialog's illustration: a small browser window, built from the product's own parts, doing
+ * what the batch is about to do. Picked tabs come to the front in turn (`tabs`), or one tab beside
+ * this page opens each listed page in turn (`urls`); each page scrolls while it is read and is ticked
+ * once it is done. One step is 2s and the cycle holds the finished state for a further 2s, because a
+ * sequence that resets the moment it ends never shows its own result.
+ *
+ * The rules below are the finished state, and the animation only runs when motion is allowed, so
+ * reduced motion shows every tab ticked rather than a frame from the middle.
+ */
+.start-dialog { max-width: min(400px, calc(100vw - 32px)); }
+.tour { margin: -4px -4px 6px; padding: 14px 14px 0; overflow: hidden; background: var(--stage); border-radius: 10px; }
+.tour-window { width: 280px; margin: 0 auto; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 8px 0 0; }
+.tour-strip { position: relative; display: flex; gap: 4px; padding: 6px 6px 0; }
+.tour-tab, .tour-focus { box-sizing: border-box; width: 64px; height: 24px; border-radius: 6px 6px 0 0; }
+.tour-tab { position: relative; z-index: 1; display: flex; align-items: center; gap: 5px; padding: 0 7px; }
+.tour-tab i { display: block; flex: none; }
+.tour-mark { width: 8px; height: 8px; background: var(--accent); border-radius: 2px; }
+.tour-icon { width: 8px; height: 8px; background: var(--line); border-radius: 2px; }
+.tour-tab .tour-title { flex: 1; height: 4px; background: var(--line); border-radius: 2px; }
+.tour-tab .icon { flex: none; width: 11px; height: 11px; color: var(--accent); stroke-width: 3; }
+/* The front tab: the one surface in the strip, joined to the page under it. */
+.tour-focus { position: absolute; top: 6px; left: 6px; background: var(--surface); border: 1px solid var(--line); border-bottom: 0; transform: translateX(204px); }
+.tour-view { height: 96px; overflow: hidden; background: var(--surface); }
+.tour-page { display: grid; gap: 7px; padding: 12px 16px; }
+.tour-page i { display: block; height: 5px; background: var(--line); border-radius: 3px; }
+.tour-page i:nth-child(1) { width: 46%; height: 8px; background: var(--ink-2); opacity: .35; }
+.tour-page i:nth-child(2) { width: 88%; }
+.tour-page i:nth-child(3) { height: 34px; background: var(--surface-2); border: 1px solid var(--line); }
+.tour-page i:nth-child(4) { width: 92%; }
+.tour-page i:nth-child(5) { width: 70%; }
+.tour-page i:nth-child(6) { height: 34px; background: var(--surface-2); border: 1px solid var(--line); }
+.tour-page i:nth-child(7) { width: 84%; }
+.tour-page i:nth-child(8) { width: 58%; }
+
+.tour[data-source='urls'] .tour-pick,
+.tour[data-source='urls'] .tour-focus,
+.tour[data-source='tabs'] .tour-open { display: none; }
+/* A listed page gets a tab of its own beside the batch page, so here the tab itself is the front one. */
+.tour-open { background: var(--surface); border: 1px solid var(--line); border-bottom: 0; }
+.tour-n { display: grid; flex: 1; font: 600 10px/1 var(--mono); color: var(--ink-2); }
+.tour-n i { grid-area: 1 / 1; font-style: normal; opacity: 0; }
+.tour-n i:nth-child(3) { opacity: 1; }
+
+.start-rules { display: grid; gap: 7px; margin: 4px 0 0; padding: 0; list-style: none; }
+.start-rules li { display: flex; align-items: flex-start; gap: 9px; font: 400 13px/1.45 var(--ui); color: var(--ink-2); }
+.start-rules .icon { flex: none; width: 16px; height: 16px; margin-top: 1px; color: var(--ink); }
+/* Filled, as on a player: an outlined square reads as a checkbox. */
+.start-rules [data-icon='player-stop'] { fill: currentColor; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tour * { animation-duration: 8s; animation-iteration-count: infinite; }
+  .tour-focus { animation-name: tour-walk; animation-timing-function: cubic-bezier(.2, .85, .25, 1); }
+  .tour-page { animation-name: tour-read; animation-timing-function: cubic-bezier(.55, 0, .45, 1); }
+  .tour-pick .icon { animation-timing-function: cubic-bezier(.2, .85, .25, 1); }
+  .tour-pick-1 .icon { animation-name: tour-tick-1; }
+  .tour-pick-2 .icon { animation-name: tour-tick-2; }
+  .tour-pick-3 .icon { animation-name: tour-tick-3; }
+  .tour-open { animation-name: tour-reopen; animation-timing-function: cubic-bezier(.2, .85, .25, 1); }
+  .tour-open .icon { animation-name: tour-tick-each; }
+  .tour-n i { animation-timing-function: step-end; }
+  .tour-n i:nth-child(1) { animation-name: tour-n-1; }
+  .tour-n i:nth-child(2) { animation-name: tour-n-2; }
+  .tour-n i:nth-child(3) { animation-name: tour-n-3; }
+}
+
+@keyframes tour-walk {
+  0%, 22% { transform: translateX(68px); }
+  25%, 47% { transform: translateX(136px); }
+  50%, 100% { transform: translateX(204px); }
+}
+@keyframes tour-read {
+  0% { transform: translateY(0); opacity: 1; }
+  20% { transform: translateY(-62px); opacity: 1; }
+  23% { transform: translateY(-62px); opacity: 0; }
+  25% { transform: translateY(0); opacity: 1; }
+  45% { transform: translateY(-62px); opacity: 1; }
+  48% { transform: translateY(-62px); opacity: 0; }
+  50% { transform: translateY(0); opacity: 1; }
+  70% { transform: translateY(-62px); opacity: 1; }
+  73% { transform: translateY(-62px); opacity: 0; }
+  75%, 100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes tour-tick-1 { 0%, 21% { opacity: 0; transform: scale(.4); } 23%, 97% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+@keyframes tour-tick-2 { 0%, 46% { opacity: 0; transform: scale(.4); } 48%, 97% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+@keyframes tour-tick-3 { 0%, 71% { opacity: 0; transform: scale(.4); } 73%, 97% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+@keyframes tour-tick-each {
+  0%, 20% { opacity: 0; } 21%, 23% { opacity: 1; } 24%, 45% { opacity: 0; }
+  46%, 48% { opacity: 1; } 49%, 70% { opacity: 0; } 71%, 100% { opacity: 1; }
+}
+/* The tab closes after each page and a new one opens for the next. */
+@keyframes tour-reopen {
+  0% { opacity: 0; transform: translateY(6px); } 3%, 23% { opacity: 1; transform: translateY(0); }
+  24.5% { opacity: 0; transform: translateY(0); } 25% { opacity: 0; transform: translateY(6px); }
+  28%, 48% { opacity: 1; transform: translateY(0); }
+  49.5% { opacity: 0; transform: translateY(0); } 50% { opacity: 0; transform: translateY(6px); }
+  53%, 100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes tour-n-1 { 0% { opacity: 1; } 25%, 100% { opacity: 0; } }
+@keyframes tour-n-2 { 0% { opacity: 0; } 25% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes tour-n-3 { 0% { opacity: 0; } 50%, 100% { opacity: 1; } }
