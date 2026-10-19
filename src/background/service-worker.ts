@@ -48,6 +48,7 @@ import type { PageContent } from '../shared/page-content'
 import type { ScrollOffset } from '../shared/region-geometry'
 import type {
   CaptureJob,
+  CaptureMetrics,
   CaptureMode,
   ContentRequest,
   ContentResponse,
@@ -72,23 +73,6 @@ chrome.permissions.onRemoved.addListener((removed) => {
   if (removed.permissions?.includes('downloads')) {
     void clearDownloadFolderRevokedBefore(Date.now()).catch(() => undefined)
   }
-})
-
-/*
- * The batch page owns a capture window, and that page can be closed at any moment -- mid-page, with
- * no chance to tidy up. It reports the window over this port, so the window goes with it instead of
- * being left open on a list nobody is watching. On a normal finish the page closes the window
- * itself first, and removing it a second time here fails harmlessly.
- */
-chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== 'batch' || port.sender?.url?.split(/[?#]/)[0] !== chrome.runtime.getURL('batch.html')) return
-  let windowId: number | undefined
-  port.onMessage.addListener((message: { windowId?: unknown }) => {
-    if (typeof message.windowId === 'number') windowId = message.windowId
-  })
-  port.onDisconnect.addListener(() => {
-    if (windowId !== undefined) void chrome.windows.remove(windowId).catch(() => undefined)
-  })
 })
 
 chrome.runtime.onMessage.addListener(
@@ -352,7 +336,14 @@ async function createCapture(mode: CaptureMode, providedTab?: chrome.tabs.Tab, q
     ownership.release(tabId, job.id)
     throw error
   }
-  void runCapture(job, tab, quiet).finally(() => ownership.release(tabId, job.id))
+  void runCapture(job, tab, quiet).finally(() => {
+    ownership.release(tabId, job.id)
+    // The batch page waits on this rather than polling: it is a background tab while a batch runs,
+    // and a background tab's timers are throttled. The job itself is already persisted.
+    if (quiet) {
+      void chrome.runtime.sendMessage({ type: 'BATCH_JOB_SETTLED', jobId: job.id }).catch(() => undefined)
+    }
+  })
   return job
 }
 
@@ -378,7 +369,7 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab, quiet = false):
       // Injecting first proves the tab holds the page that was asked for. A screenshot alone would
       // succeed on the browser's own "this site can't be reached" page and save it as the result.
       if (quiet) await ensureContentScript(tabId)
-      await captureVisibleArea(job, tabId, windowId)
+      await captureVisibleArea(job, tabId, windowId, quiet)
     } else {
       let useVisibleAreaFallback = false
       let fileAccessDenied = false
@@ -411,7 +402,7 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab, quiet = false):
          * same remedy in the failure instead of Chrome's raw text.
          */
         try {
-          await captureVisibleArea(job, tabId, windowId)
+          await captureVisibleArea(job, tabId, windowId, false)
         } catch (error) {
           if (!fileAccessDenied) throw error
           throw new PageShotterError('FILE_ACCESS_DENIED', fileAccessMessage(false))
@@ -516,6 +507,7 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab, quiet = false):
     }
   } finally {
     cancelledJobs.delete(job.id)
+    pausedMs.delete(job.id)
     if (contentPrepared) {
       await sendContentMessage(tabId, { type: 'CLEANUP_CAPTURE' }).catch(() => undefined)
     }
@@ -546,9 +538,22 @@ async function deliverStoppedCapture(job: CaptureJob, windowId: number, quiet: b
   if (!quiet) await openResultTabInFront(job.id, windowId)
 }
 
-async function captureVisibleArea(job: CaptureJob, tabId: number, windowId: number): Promise<void> {
+/**
+ * `scripted` says whether the content script is in the page, which is what lets the capture ask
+ * whether the page is actually being drawn. Without it, being the active tab is all that is checked.
+ */
+async function captureVisibleArea(job: CaptureJob, tabId: number, windowId: number, scripted: boolean): Promise<void> {
   await throwIfCancelled(job.id)
-  const dataUrl = await captureActiveTab(job.id, tabId, windowId, false)
+  let dataUrl: string
+  for (;;) {
+    try {
+      dataUrl = await captureActiveTab(job.id, tabId, windowId, false, scripted)
+      break
+    } catch (error) {
+      // Nothing was positioned, so being interrupted only means photographing it again.
+      if (!(error instanceof CaptureInterrupted)) throw error
+    }
+  }
   const blob = await dataUrlToBlob(dataUrl)
   const dimensions = await imageDimensions(blob)
   await throwIfCancelled(job.id)
@@ -626,7 +631,7 @@ async function captureRegion(job: CaptureJob, tabId: number, windowId: number): 
     regionFitsViewport(region, scroll, viewport)
 
   if (onScreen) {
-    await captureVisibleArea(job, tabId, windowId)
+    await captureVisibleArea(job, tabId, windowId, true)
     const [segment] = await getSegments(job.id)
     if (segment && viewport && viewport.width > 0 && viewport.height > 0) {
       job.regionCrop = regionToImageCrop(
@@ -682,6 +687,7 @@ async function captureRegionBand(
   if (prepared.degradations) {
     job.degradations = addDegradations(job.degradations ?? {}, prepared.degradations)
   }
+  addPausedMs(job.id, prepared.hiddenMs)
   if (prepared.pageUrl) job.url = prepared.pageUrl
 
   const regionBottom = region.y + region.height
@@ -692,36 +698,17 @@ async function captureRegionBand(
   const seenOverlayIds = new Set<number>()
 
   while (index < CAPTURE_LIMITS.maxSegments) {
-    await throwIfCancelled(job.id)
-    const positioned = await sendContentMessage(tabId, {
-      type: 'CAPTURE_POSITION',
-      scrollY: targetY,
-      seenOverlayIds: [...seenOverlayIds],
-    })
-    if (!positioned.ok || !positioned.metrics) throw responseError(positioned)
-    const metrics = positioned.metrics
-    // Each response reports only what happened since the last one, so these accumulate.
-    if (positioned.degradations) {
-      job.degradations = addDegradations(job.degradations ?? {}, positioned.degradations)
-    }
-    if (metrics.captureWidth <= 0 || metrics.captureHeight <= 0) {
-      throw new PageShotterError(
-        'NO_VISIBLE_CONTENT',
-        'The scrollable area of this page is not visible on screen, so there is nothing to capture.',
-      )
-    }
+    const { metrics, dataUrl } = await positionAndCapture(
+      job,
+      tabId,
+      windowId,
+      { type: 'CAPTURE_POSITION', scrollY: targetY, seenOverlayIds: [...seenOverlayIds] },
+      (metrics) => assertSectionCapturable(metrics, coveredUntil),
+    )
     // The band's origin is wherever the page actually landed, which near the bottom of a document is
     // above the requested offset. Deriving it from the first segment rather than from the selection
     // keeps the image origin and the crop in agreement whatever the page did.
     if (bandOrigin === undefined) bandOrigin = metrics.scrollY
-    if (metrics.scrollY > coveredUntil + 1) {
-      throw new PageShotterError(
-        'SCROLL_GAP',
-        `The page forced ${BROWSER.name} to skip part of the document while scrolling. Disable scroll snapping and retry.`,
-      )
-    }
-
-    const dataUrl = await captureActiveTab(job.id, tabId, windowId, true)
     const blob = await dataUrlToBlob(dataUrl)
     const dimensions = await imageDimensions(blob)
     await throwIfCancelled(job.id)
@@ -787,6 +774,7 @@ async function captureFullPage(job: CaptureJob, tabId: number, windowId: number)
   if (prepared.degradations) {
     job.degradations = addDegradations(job.degradations ?? {}, prepared.degradations)
   }
+  addPausedMs(job.id, prepared.hiddenMs)
   if (prepared.pageUrl) job.url = prepared.pageUrl
 
   // A nested scroller clipped above the viewport starts above content offset 0, so the loop is
@@ -816,33 +804,13 @@ async function captureFullPage(job: CaptureJob, tabId: number, windowId: number)
   const depthLimit = Number.isFinite(allowance) ? allowance : undefined
 
   while (index < CAPTURE_LIMITS.maxSegments) {
-    await throwIfCancelled(job.id)
-    const positioned = await sendContentMessage(tabId, {
-      type: 'CAPTURE_POSITION',
-      scrollY: targetY,
-      seenOverlayIds: [...seenOverlayIds],
-      depthLimit,
-    })
-    if (!positioned.ok || !positioned.metrics) throw responseError(positioned)
-    const metrics = positioned.metrics
-    // Each response reports only what happened since the last one, so these accumulate.
-    if (positioned.degradations) {
-      job.degradations = addDegradations(job.degradations ?? {}, positioned.degradations)
-    }
-    if (metrics.captureWidth <= 0 || metrics.captureHeight <= 0) {
-      throw new PageShotterError(
-        'NO_VISIBLE_CONTENT',
-        'The scrollable area of this page is not visible on screen, so there is nothing to capture.',
-      )
-    }
-    if (metrics.scrollY > coveredUntil + 1) {
-      throw new PageShotterError(
-        'SCROLL_GAP',
-        `The page forced ${BROWSER.name} to skip part of the document while scrolling. Disable scroll snapping and retry.`,
-      )
-    }
-
-    const dataUrl = await captureActiveTab(job.id, tabId, windowId, true)
+    const { metrics, dataUrl } = await positionAndCapture(
+      job,
+      tabId,
+      windowId,
+      { type: 'CAPTURE_POSITION', scrollY: targetY, seenOverlayIds: [...seenOverlayIds], depthLimit },
+      (metrics) => assertSectionCapturable(metrics, coveredUntil),
+    )
     const blob = await dataUrlToBlob(dataUrl)
     const dimensions = await imageDimensions(blob)
     await throwIfCancelled(job.id)
@@ -895,7 +863,8 @@ async function captureFullPage(job: CaptureJob, tabId: number, windowId: number)
      * height actually covered rather than the height planned, for the same reason a user's Stop
      * does: padding the picture out to a depth that was never photographed adds blank space.
      */
-    if (deadlineReached(startedAt, Date.now())) {
+    // Time the page spent off screen is time it was paused, not time it took.
+    if (deadlineReached(startedAt + (pausedMs.get(job.id) ?? 0), Date.now())) {
       job.deadlineReached = true
       job.endlessPage = false
       job.finalDocumentHeight = coveredUntil
@@ -967,14 +936,113 @@ async function sendContentMessage(tabId: number, request: ContentRequest): Promi
   return chrome.tabs.sendMessage(tabId, request) as Promise<ContentResponse>
 }
 
-async function assertTabIsActive(tabId: number, windowId: number): Promise<void> {
-  const [activeTab] = await chrome.tabs.query({ active: true, windowId })
-  if (activeTab?.id !== tabId) {
+/**
+ * The page went off screen -- its tab switched away from, or its window covered or minimised --
+ * between being positioned and being photographed. Not a failure: the section is positioned again
+ * once the page is back on screen, and the capture carries on from there.
+ */
+class CaptureInterrupted extends Error {}
+
+/** How often a paused capture looks to see whether its page is back on screen. */
+const PAUSE_POLL_MS = 500
+
+/**
+ * Time each capture spent with its page hidden, as the page reports it. The deadline leaves it out:
+ * someone who switched away for a minute has not made the page a minute slower.
+ */
+const pausedMs = new Map<string, number>()
+
+function addPausedMs(jobId: string, ms: number | undefined): void {
+  if (ms !== undefined && ms > 0) pausedMs.set(jobId, (pausedMs.get(jobId) ?? 0) + ms)
+}
+
+/**
+ * Positions the page for one section and photographs it.
+ *
+ * `check` vets the positioned page before anything is photographed. When the page went off screen
+ * in between, it is positioned again rather than trusted to have stayed put: whoever switched away
+ * may have scrolled it on the way back.
+ */
+async function positionAndCapture(
+  job: CaptureJob,
+  tabId: number,
+  windowId: number,
+  request: Extract<ContentRequest, { type: 'CAPTURE_POSITION' }>,
+  check: (metrics: CaptureMetrics) => void,
+): Promise<{ metrics: CaptureMetrics; dataUrl: string }> {
+  for (;;) {
+    await throwIfCancelled(job.id)
+    const positioned = await sendContentMessage(tabId, request)
+    if (!positioned.ok || !positioned.metrics) throw responseError(positioned)
+    // Each response reports only what happened since the last one, so these accumulate.
+    if (positioned.degradations) {
+      job.degradations = addDegradations(job.degradations ?? {}, positioned.degradations)
+    }
+    addPausedMs(job.id, positioned.hiddenMs)
+    check(positioned.metrics)
+    try {
+      return { metrics: positioned.metrics, dataUrl: await captureActiveTab(job.id, tabId, windowId, true) }
+    } catch (error) {
+      if (!(error instanceof CaptureInterrupted)) throw error
+    }
+  }
+}
+
+function assertSectionCapturable(metrics: CaptureMetrics, coveredUntil: number): void {
+  if (metrics.captureWidth <= 0 || metrics.captureHeight <= 0) {
     throw new PageShotterError(
-      'TAB_NOT_ACTIVE',
-      `The source tab must remain active while ${BROWSER.name} captures it. Return to the page and retry.`,
+      'NO_VISIBLE_CONTENT',
+      'The scrollable area of this page is not visible on screen, so there is nothing to capture.',
     )
   }
+  if (metrics.scrollY > coveredUntil + 1) {
+    throw new PageShotterError(
+      'SCROLL_GAP',
+      `The page forced ${BROWSER.name} to skip part of the document while scrolling. Disable scroll snapping and retry.`,
+    )
+  }
+}
+
+async function tabIsActive(tabId: number, windowId: number): Promise<boolean> {
+  const [activeTab] = await chrome.tabs.query({ active: true, windowId })
+  return activeTab?.id === tabId
+}
+
+/**
+ * Whether the page is on screen: its tab the one showing, and -- when the content script is there
+ * to ask -- the page actually being drawn, which a covered or minimised window is not.
+ */
+async function onScreen(tabId: number, windowId: number, scripted: boolean): Promise<boolean> {
+  if (!(await tabIsActive(tabId, windowId))) return false
+  if (!scripted) return true
+  let response: ContentResponse
+  try {
+    response = await sendContentMessage(tabId, { type: 'PAGE_VISIBLE' })
+  } catch {
+    throw new PageShotterError('PAGE_CHANGED', 'The page was closed or navigated away from during capture.')
+  }
+  return response.ok && response.visible === true
+}
+
+/**
+ * Pauses until the page is back on screen, and says whether it had to.
+ *
+ * This replaced failing with "the active tab changed". Leaving the tab mid-capture is ordinary --
+ * a long page takes a while, and a batch takes longer -- and nothing about the capture is broken by
+ * it: the page simply is not being drawn. Waiting costs nothing, and the person who left can come
+ * back to a capture that finishes instead of one that has to be started again. Stop still ends it.
+ */
+async function waitUntilOnScreen(jobId: string, tabId: number, windowId: number, scripted: boolean): Promise<boolean> {
+  let waited = false
+  while (!(await onScreen(tabId, windowId, scripted))) {
+    waited = true
+    await throwIfCancelled(jobId)
+    if (!(await chrome.tabs.get(tabId).catch(() => undefined))) {
+      throw new PageShotterError('TAB_CLOSED', 'The tab was closed during capture.')
+    }
+    await new Promise((resolve) => setTimeout(resolve, PAUSE_POLL_MS))
+  }
+  return waited
 }
 
 async function captureActiveTab(
@@ -982,8 +1050,11 @@ async function captureActiveTab(
   tabId: number,
   windowId: number,
   heartbeat: boolean,
+  scripted = heartbeat,
 ): Promise<string> {
   const generation = tabActivationGeneration.get(windowId) ?? 0
+  // Waited out here rather than inside the queue, so a paused capture does not hold up another.
+  if (await waitUntilOnScreen(jobId, tabId, windowId, scripted)) throw new CaptureInterrupted()
   const operation = captureQueue.then(async () => {
     let quotaFailureCount = 0
 
@@ -995,28 +1066,34 @@ async function captureActiveTab(
           if (!response.ok) throw responseError(response)
         }
         await throwIfCancelled(jobId)
-        await assertTabIsActive(tabId, windowId)
-        if (generation !== (tabActivationGeneration.get(windowId) ?? 0)) {
-          throw new PageShotterError(
-            'TAB_CHANGED',
-            'The active tab changed during capture. Return to the page and retry.',
-          )
+        // Switched away and back since the page was positioned: it may not be where it was put.
+        if (!(await tabIsActive(tabId, windowId)) || generation !== (tabActivationGeneration.get(windowId) ?? 0)) {
+          throw new CaptureInterrupted()
         }
 
-        const result = await chrome.tabs.captureVisibleTab(windowId, { format: 'png' })
+        let result: string
+        try {
+          result = await chrome.tabs.captureVisibleTab(windowId, { format: 'png' })
+        } catch (error) {
+          // Refused because the page went off screen in the moment between the check and the call.
+          if (!isCaptureQuotaError(error) && !(await onScreen(tabId, windowId, scripted))) {
+            throw new CaptureInterrupted()
+          }
+          throw error
+        }
         lastCaptureAt = Date.now()
         await throwIfCancelled(jobId)
-        await assertTabIsActive(tabId, windowId)
-        if (generation !== (tabActivationGeneration.get(windowId) ?? 0)) {
-          throw new PageShotterError(
-            'TAB_CHANGED',
-            'The active tab changed during capture. Return to the page and retry.',
-          )
+        // Whatever was photographed while the tab was switched or hidden is not this page.
+        if (
+          !(await onScreen(tabId, windowId, scripted)) ||
+          generation !== (tabActivationGeneration.get(windowId) ?? 0)
+        ) {
+          throw new CaptureInterrupted()
         }
         return result
       } catch (error) {
         await throwIfCancelled(jobId)
-        if (!isCaptureQuotaError(error)) throw error
+        if (error instanceof CaptureInterrupted || !isCaptureQuotaError(error)) throw error
         quotaFailureCount += 1
         if (quotaFailureCount >= CAPTURE_RETRY_POLICY.maxAttempts) {
           throw new PageShotterError(

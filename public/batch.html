@@ -38,7 +38,7 @@
       <div class="bar">
         <div class="titlewrap">
           <h1>Batch capture</h1>
-          <p class="meta">Capture a list of pages, one after another, in a separate window.</p>
+          <p class="meta">Capture a list of pages, one after another, each in a tab beside this one.</p>
         </div>
         <div class="tools">
           <button id="theme" class="ghost only-icon" type="button">
@@ -111,7 +111,8 @@
 
         <div class="batch-actions">
           <p class="note" id="access-note"></p>
-          <button id="stop" class="btn" type="button" hidden><svg class="icon" data-icon="player-stop" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Stop after this page</button>
+          <button id="back-to-capture" class="btn" type="button" hidden><svg class="icon" data-icon="arrow-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Back to the capture</button>
+          <button id="stop" class="btn" type="button" hidden><svg class="icon" data-icon="player-stop" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Stop</button>
           <button id="start" class="btn primary" type="button"><svg class="icon" data-icon="player-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Start</button>
         </div>
         <p class="action-alert" id="batch-status" role="status" hidden></p>
@@ -125,6 +126,23 @@
         </section>
       </main>
     </div>
+    <dialog class="confirm" id="start-dialog" aria-labelledby="start-dialog-heading">
+      <div class="confirm-body">
+        <h2 id="start-dialog-heading">Stay on the page being captured</h2>
+        <p>
+          PageShotter opens each page in a new tab beside this one and captures it while it is on
+          screen. Please don't switch tabs or windows until the batch finishes.
+        </p>
+        <p>
+          If you do, the capture pauses until you come back to it. Nothing is lost, and Stop ends the
+          batch at any time.
+        </p>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn" id="start-cancel" type="button">Cancel</button>
+        <button class="btn primary" id="start-confirm" type="button">OK, start the capture</button>
+      </div>
+    </dialog>
     <script src="batch.js"></script>
   </body>
 </html>

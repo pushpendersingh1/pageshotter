@@ -174,6 +174,8 @@ export type ContentRequest =
    */
   | { type: 'CAPTURE_POSITION'; scrollY: number; seenOverlayIds: number[]; depthLimit?: number }
   | { type: 'HEARTBEAT_CAPTURE' }
+  /** Whether the page is being drawn, asked while a capture waits for it to be on screen again. */
+  | { type: 'PAGE_VISIBLE' }
   | { type: 'CLEANUP_CAPTURE' }
 
 export type ContentResponse =
@@ -216,5 +218,12 @@ export type ContentResponse =
        * nothing reads back.
        */
       degradations?: Degradations
+      /** Answer to PAGE_VISIBLE. */
+      visible?: boolean
+      /**
+       * How long the page was hidden while serving this request. Time spent paused is not time the
+       * page took, so the capture's deadline leaves it out.
+       */
+      hiddenMs?: number
     }
   | { ok: false; error: CaptureError }

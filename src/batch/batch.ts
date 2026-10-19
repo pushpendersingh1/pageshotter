@@ -45,11 +45,21 @@ const batchStatus = requiredElement<HTMLParagraphElement>('batch-status')
 const reportGroup = requiredElement<HTMLElement>('report-group')
 const report = requiredElement<HTMLOListElement>('report')
 const retryFailedButton = requiredElement<HTMLButtonElement>('retry-failed')
+const backButton = requiredElement<HTMLButtonElement>('back-to-capture')
+const startDialog = requiredElement<HTMLDialogElement>('start-dialog')
+const startConfirm = requiredElement<HTMLButtonElement>('start-confirm')
+const startCancel = requiredElement<HTMLButtonElement>('start-cancel')
 
 const FORMAT_LABELS: Record<ExportFormat, string> = { png: 'PNG', jpeg: 'JPEG', webp: 'WebP', pdf: 'PDF' }
 const MODE_LABELS: Record<BatchMode, string> = { full: 'Full page', visible: 'Visible part' }
-/** How often the job is read back while the worker captures it. The popup polls at the same pace. */
-const JOB_POLL_MS = 400
+/**
+ * A backstop, not the mechanism. The worker announces each settled capture, and this page waits on
+ * that announcement: while a batch runs this is a background tab, and a background tab's timers are
+ * throttled -- to once a minute, after a few minutes. The poll only covers a worker that restarted
+ * mid-capture and so never announced anything.
+ */
+const JOB_BACKSTOP_MS = 5_000
+const PAGE_TITLE = document.title
 
 type RowState = 'waiting' | 'loading' | 'rendering' | 'capturing' | 'saving' | 'saved' | 'failed' | 'skipped'
 
@@ -74,10 +84,10 @@ interface Run {
 /** A reason to end the whole batch rather than mark one page failed. */
 class BatchAbort extends Error {}
 
-/** Stop was pressed while a page was waiting its turn to be seen. */
-class StoppedWhilePaused extends Error {}
+/** Stop was pressed: whatever was waiting gives up, and the page in hand is not saved. */
+class Stopped extends Error {}
 
-/** A capture that failed, with the worker's code kept so a covered window can be told apart. */
+/** A capture that failed, with the worker's code kept. */
 class CaptureFailure extends Error {
   constructor(
     readonly code: string | undefined,
@@ -92,6 +102,11 @@ let currentRun: Run | undefined
 let running = false
 let stopRequested = false
 let settingsFormat: ExportFormat = 'png'
+/** The tab the current page is loading or being captured in, and its capture once started. */
+let captureTabId: number | undefined
+let currentJobId: string | undefined
+/** What the start dialog will run once confirmed: a fresh list, or rows being retried. */
+let pendingRows: Row[] | 'new' = 'new'
 
 /*
  * Recorded per tab from the moment the page opens, so a tab created later can never have reported
@@ -117,6 +132,15 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   for (const wake of loadWaiters) wake()
 })
 
+const settledJobs = new Set<string>()
+const settleWaiters = new Set<() => void>()
+chrome.runtime.onMessage.addListener((message: { type?: unknown; jobId?: unknown }) => {
+  if (message?.type !== 'BATCH_JOB_SETTLED' || typeof message.jobId !== 'string') return
+  settledJobs.add(message.jobId)
+  for (const wake of settleWaiters) wake()
+  // Nothing is returned: this page never answers a message, so it cannot take anyone's reply.
+})
+
 void initialise()
 
 async function initialise(): Promise<void> {
@@ -140,19 +164,24 @@ async function initialise(): Promise<void> {
   }
 
   urlsInput.addEventListener('input', drawSummary)
-  startButton.addEventListener('click', onStart)
-  stopButton.addEventListener('click', () => {
-    stopRequested = true
-    stopButton.disabled = true
-    showStatus('Stopping after the page being captured now.')
+  startButton.addEventListener('click', () => {
+    if (running || parseBatchUrls(urlsInput.value).urls.length === 0) return
+    askToStart('new')
   })
+  stopButton.addEventListener('click', stop)
   retryFailedButton.addEventListener('click', () => {
     const failed = rows.filter((row) => row.state === 'failed' || row.state === 'skipped')
-    if (failed.length > 0) requestAccessThenRun(failed)
+    if (failed.length > 0) askToStart(failed)
   })
+  startConfirm.addEventListener('click', onConfirmStart)
+  startCancel.addEventListener('click', () => startDialog.close())
+  backButton.addEventListener('click', () => {
+    if (captureTabId !== undefined) void chrome.tabs.update(captureTabId, { active: true }).catch(() => undefined)
+  })
+  document.addEventListener('visibilitychange', drawPausedNotice)
 
-  // A batch in progress is lost if this tab goes, and its window with it. Browsers show their own
-  // wording for this; asking is what matters.
+  // A batch in progress is lost if this tab goes. Browsers show their own wording for this; asking
+  // is what matters.
   window.addEventListener('beforeunload', (event) => {
     if (running) event.preventDefault()
   })
@@ -222,18 +251,40 @@ async function drawAccessNote(): Promise<void> {
 }
 
 /**
- * The permission request comes first and synchronously. Firefox honours `permissions.request` only
- * inside the click that asked for it, and anything awaited before the call can end that window.
+ * Says up front what a batch needs from the person running it, before it takes over their tab.
+ *
+ * The page being captured has to be the one on screen: a browser draws nothing for a tab that is
+ * not showing, and a screenshot is of what it draws. Leaving it does not lose anything -- the
+ * capture pauses and carries on when they come back -- but someone who was not told would read a
+ * batch sitting still as a batch that broke.
  */
-function onStart(): void {
+function askToStart(selected: Row[] | 'new'): void {
+  pendingRows = selected
+  startDialog.showModal()
+  startConfirm.focus()
+}
+
+/**
+ * The permission request comes first and synchronously. Firefox honours `permissions.request` only
+ * inside the click that asked for it, and anything awaited before the call can end that window --
+ * which is why it happens here, on the dialog's button, and not after it closes.
+ */
+function onConfirmStart(): void {
+  startDialog.close()
   if (running) return
-  const { urls } = parseBatchUrls(urlsInput.value)
-  if (urls.length === 0) return
-  currentRun = undefined
-  rows = urls.map((url, index) => createRow(url, index + 1))
-  report.replaceChildren(...rows.map((row) => row.element))
-  reportGroup.hidden = false
-  requestAccessThenRun(rows)
+  let selected: Row[]
+  if (pendingRows === 'new') {
+    const { urls } = parseBatchUrls(urlsInput.value)
+    if (urls.length === 0) return
+    currentRun = undefined
+    rows = urls.map((url, index) => createRow(url, index + 1))
+    report.replaceChildren(...rows.map((row) => row.element))
+    reportGroup.hidden = false
+    selected = rows
+  } else {
+    selected = pendingRows
+  }
+  requestAccessThenRun(selected)
 }
 
 function requestAccessThenRun(selected: Row[]): void {
@@ -261,6 +312,33 @@ function requestAccessThenRun(selected: Row[]): void {
       }
       return runBatch(selected)
     })
+}
+
+/**
+ * Stops now rather than after the page in hand: while anyone is on this tab to press it, that page
+ * is not on screen and its capture is paused, so "after this page" would mean "never".
+ */
+function stop(): void {
+  stopRequested = true
+  stopButton.disabled = true
+  for (const wake of loadWaiters) wake()
+  if (currentJobId !== undefined) {
+    void chrome.runtime.sendMessage({ type: 'CANCEL_CAPTURE', jobId: currentJobId } satisfies RuntimeRequest).catch(() => undefined)
+  }
+}
+
+/** Shown only while someone is looking at this tab mid-batch, which is exactly when it is true. */
+function drawPausedNotice(): void {
+  const here = running && document.visibilityState === 'visible'
+  backButton.hidden = !here || captureTabId === undefined
+  if (here) {
+    showStatus(
+      'The page being captured is paused while you are on this tab. Go back to it to carry on, or press Stop.',
+      true,
+    )
+  } else if (running) {
+    hideStatus()
+  }
 }
 
 async function runBatch(selected: Row[]): Promise<void> {
@@ -292,33 +370,31 @@ async function runBatch(selected: Row[]): Promise<void> {
   }
   currentRun = run
 
-  // The worker closes the window if this page goes away mid-batch; see `onConnect` there.
-  const port = chrome.runtime.connect({ name: 'batch' })
-  let windowId: number | undefined
   let lastDownloadId: number | undefined
   let abortMessage: string | undefined
+  const own = await chrome.tabs.getCurrent().catch(() => undefined)
   try {
-    const opened = await openCaptureWindow()
-    windowId = opened.windowId
-    let tabId = opened.tabId
-    port.postMessage({ windowId })
-    for (const row of selected) {
+    if (own?.id === undefined) throw new BatchAbort('This page could not find its own tab.')
+    for (const [index, row] of selected.entries()) {
       if (stopRequested) break
-      const result = await captureRow(row, run, windowId, tabId)
-      tabId = result.tabId
-      if (result.downloadId !== undefined) lastDownloadId = result.downloadId
+      document.title = `(${index + 1}/${selected.length}) ${PAGE_TITLE}`
+      const downloadId = await captureRow(row, run, own)
+      if (downloadId !== undefined) lastDownloadId = downloadId
     }
   } catch (error) {
     abortMessage = error instanceof Error ? error.message : String(error)
   } finally {
-    if (windowId !== undefined) await chrome.windows.remove(windowId).catch(() => undefined)
-    port.disconnect()
+    if (captureTabId !== undefined) await chrome.tabs.remove(captureTabId).catch(() => undefined)
+    captureTabId = undefined
+    currentJobId = undefined
     for (const row of selected) {
       if (row.state === 'waiting') setRowState(row, 'skipped', 'Not captured: the batch stopped first')
     }
     running = false
     setRunning(false)
-    await focusThisPage()
+    document.title = PAGE_TITLE
+    backButton.hidden = true
+    if (own?.id !== undefined) await chrome.tabs.update(own.id, { active: true }).catch(() => undefined)
   }
 
   if (run.options.showFolder && lastDownloadId !== undefined) {
@@ -335,96 +411,70 @@ async function runBatch(selected: Row[]): Promise<void> {
 }
 
 /**
- * A window of its own, at the size of this one, so pages lay out the way they would for the user.
- *
- * `captureVisibleTab` photographs what is on screen, so the window is focused rather than opened
- * behind: a window covered by another may not be painted at all.
- */
-async function openCaptureWindow(): Promise<{ windowId: number; tabId: number }> {
-  const own = await chrome.windows.getCurrent().catch(() => undefined)
-  const placement: chrome.windows.CreateData =
-    own?.state === 'maximized' || own?.state === 'fullscreen'
-      ? { state: 'maximized' }
-      : { width: own?.width, height: own?.height, left: own?.left, top: own?.top }
-  const created = await chrome.windows.create({ url: 'about:blank', focused: true, type: 'normal', ...placement })
-  const tabId = created?.tabs?.[0]?.id
-  if (created?.id === undefined || tabId === undefined) {
-    throw new BatchAbort('The capture window could not be opened.')
-  }
-  return { windowId: created.id, tabId }
-}
-
-/**
- * One page, start to finish. Each page gets a fresh tab and the previous one is closed.
+ * One page, start to finish, in a fresh tab beside this one; the previous page's tab is closed.
  *
  * A fresh tab rather than navigating one tab through the list, because it makes a page that never
  * answered unmistakable: the tab is still on its blank first document, which refuses the content
  * script, so the page is reported as not loaded. Navigating a single tab would still be showing the
  * *previous* page, and would save it under this page's number.
+ *
+ * Returns the download's id, so the folder can be shown at the end.
  */
-async function captureRow(
-  row: Row,
-  run: Run,
-  windowId: number,
-  previousTabId: number,
-): Promise<{ tabId: number; downloadId?: number }> {
+async function captureRow(row: Row, run: Run, own: chrome.tabs.Tab): Promise<number | undefined> {
   setRowState(row, 'loading', 'Loading')
-  let tab: chrome.tabs.Tab
-  try {
-    tab = await chrome.tabs.create({ windowId, url: row.url, active: true })
-  } catch {
-    throw new BatchAbort('The capture window was closed, so the batch stopped.')
-  }
+  const previousTabId = captureTabId
+  const tab = await chrome.tabs.create({ windowId: own.windowId, index: own.index + 1, url: row.url, active: true })
   const tabId = tab.id as number
-  await chrome.tabs.remove(previousTabId).catch(() => undefined)
+  captureTabId = tabId
+  if (previousTabId !== undefined) await chrome.tabs.remove(previousTabId).catch(() => undefined)
 
   try {
     const loaded = await waitForLoad(tabId, run.options.loadTimeoutMs)
     if (run.options.renderWaitMs > 0) {
       setRowState(row, 'rendering', 'Letting it render')
-      await sleep(run.options.renderWaitMs)
+      await sleepUnlessStopped(run.options.renderWaitMs)
     }
-    await assertTabOpen(tabId)
-    await waitUntilVisible(row, windowId, tabId)
+    if (closedTabs.has(tabId)) throw new BatchAbort('The tab being captured was closed, so the batch stopped.')
 
     setRowState(row, 'capturing', 'Capturing')
-    let job: CaptureJob
-    try {
-      job = await captureInWorker(tabId, run.options.mode)
-    } catch (error) {
-      // Covered partway through: the page was restored, so once it can be seen again it is simply
-      // captured again. Once only -- a second failure is reported like any other.
-      if (!(error instanceof CaptureFailure) || error.code !== 'PAGE_HIDDEN') throw error
-      await waitUntilVisible(row, windowId, tabId)
-      setRowState(row, 'capturing', 'Capturing again')
-      job = await captureInWorker(tabId, run.options.mode)
+    const job = await captureInWorker(tabId, run.options.mode)
+    // A capture stopped partway is kept by the worker as a partial, which is right for a single
+    // capture and wrong here: Stop in a batch means "not this one either".
+    if (stopRequested) {
+      await deleteCapture(job.id).catch(() => undefined)
+      throw new Stopped()
     }
     setRowState(row, 'saving', 'Saving')
     const downloadId = await saveJob(job, row, run)
     setRowState(row, 'saved', savedDescription(job, loaded))
-    return { tabId, downloadId }
+    return downloadId
   } catch (error) {
     if (error instanceof BatchAbort) {
       setRowState(row, 'failed', error.message)
       throw error
     }
-    if (error instanceof StoppedWhilePaused) {
-      setRowState(row, 'skipped', 'Not captured: the batch stopped first')
-      return { tabId }
+    if (error instanceof Stopped || (stopRequested && error instanceof CaptureFailure)) {
+      setRowState(row, 'skipped', 'Not captured: stopped')
+      return undefined
     }
     setRowState(row, 'failed', error instanceof Error ? error.message : String(error))
-    return { tabId }
+    return undefined
+  } finally {
+    currentJobId = undefined
   }
 }
 
-/** `true` when the page said it had loaded, `false` when the limit came first. */
+/** `true` when the page said it had loaded, `false` when the limit came first. *//** `true` when the page said it had loaded, `false` when the limit came first. */
 function waitForLoad(tabId: number, timeoutMs: number): Promise<boolean> {
   return new Promise((resolve, reject) => {
     let timer: number | undefined
     const check = (): void => {
-      if (closedTabs.has(tabId)) {
+      if (stopRequested) {
         finish()
-        reject(new BatchAbort('The capture window was closed, so the batch stopped.'))
+        reject(new Stopped())
+      } else if (closedTabs.has(tabId)) {
+        finish()
+        reject(new BatchAbort('The tab being captured was closed, so the batch stopped.'))
       } else if (tabLoads.get(tabId)?.complete) {
         finish()
         resolve(true)
@@ -444,59 +494,22 @@ function waitForLoad(tabId: number, timeoutMs: number): Promise<boolean> {
     check()
   })
 }
-/**
- * Holds the page until the browser is actually drawing it.
- *
- * Capture waits for frames, and a browser draws no frames for a page in a minimised window or one
- * covered by another -- which is exactly where a batch's window ends up the moment someone goes
- * back to what they were doing. So the window is brought forward once, and if the page is still
- * not visible the batch pauses and says so rather than failing every page after it. It does not
- * keep pulling the window forward: someone who switched away did so on purpose.
- */
-async function waitUntilVisible(row: Row, windowId: number, tabId: number): Promise<void> {
-  const captureWindow = await chrome.windows.get(windowId).catch(() => undefined)
-  if (captureWindow === undefined) throw new BatchAbort('The capture window was closed, so the batch stopped.')
-  await chrome.windows
-    .update(windowId, captureWindow.state === 'minimized' ? { state: 'normal', focused: true } : { focused: true })
-    .catch(() => undefined)
-
-  let paused = false
-  for (let attempt = 0; ; attempt += 1) {
-    const visible = await pageIsVisible(tabId)
-    // `undefined` is a page scripts cannot run in -- usually one that did not load. The capture
-    // itself reports that properly, so it is not a reason to wait here.
-    if (visible !== false) break
-    // The first second is the window coming forward; only after that is it worth interrupting anyone.
-    if (!paused && attempt >= 2) {
-      paused = true
-      setRowState(row, row.state, 'Paused: the capture window is covered or minimised')
-      showStatus('Paused. Bring the PageShotter capture window to the front and the batch carries on by itself.', true)
+/** The render wait, cut short by Stop. A single timer, so a background tab's throttling barely touches it. */
+function sleepUnlessStopped(ms: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const finish = (): void => {
+      loadWaiters.delete(onWake)
+      window.clearTimeout(timer)
+      if (stopRequested) reject(new Stopped())
+      else resolve()
     }
-    if (stopRequested) throw new StoppedWhilePaused()
-    await assertTabOpen(tabId)
-    await sleep(500)
-  }
-  if (paused) hideStatus()
-}
-
-async function pageIsVisible(tabId: number): Promise<boolean | undefined> {
-  try {
-    const [result] = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: () => document.visibilityState === 'visible',
-    })
-    return result?.result === true
-  } catch {
-    return undefined
-  }
-}
-
-async function assertTabOpen(tabId: number): Promise<void> {
-  try {
-    await chrome.tabs.get(tabId)
-  } catch {
-    throw new BatchAbort('The capture window was closed, so the batch stopped.')
-  }
+    // Woken by every tab update as well as by Stop, so only Stop ends it early.
+    const onWake = (): void => {
+      if (stopRequested) finish()
+    }
+    const timer = window.setTimeout(finish, ms)
+    loadWaiters.add(onWake)
+  })
 }
 
 async function captureInWorker(tabId: number, mode: BatchMode): Promise<CaptureJob> {
@@ -504,22 +517,38 @@ async function captureInWorker(tabId: number, mode: BatchMode): Promise<CaptureJ
   const started = (await chrome.runtime.sendMessage(request)) as RuntimeResponse
   if (!started.ok) throw new CaptureFailure(started.error.code, failureText(started.error.code, started.error.message))
   const jobId = started.jobId as string
+  currentJobId = jobId
+  // Stop may have been pressed while the request was in flight, before there was a job to cancel.
+  if (stopRequested) stop()
   for (;;) {
-    await sleep(JOB_POLL_MS)
+    await settledOrBackstop(jobId)
     const response = (await chrome.runtime.sendMessage({ type: 'GET_JOB', jobId } satisfies RuntimeRequest)) as RuntimeResponse
     if (!response.ok) throw new CaptureFailure(response.error.code, failureText(response.error.code, response.error.message))
     const job = response.job
     if (job === undefined) throw new Error('The capture disappeared before it finished.')
-    if (job.status === 'capturing') {
-      if (job.progress.estimatedTotal > 1) {
-        const row = rows.find((candidate) => candidate.state === 'capturing')
-        if (row) setRowState(row, 'capturing', `Capturing, section ${job.progress.current} of about ${job.progress.estimatedTotal}`)
-      }
-      continue
-    }
+    if (job.status === 'capturing') continue
     if (job.status === 'complete') return job
     throw new CaptureFailure(job.error?.code, failureText(job.error?.code, job.error?.message ?? 'The capture did not finish.'))
   }
+}
+
+function settledOrBackstop(jobId: string): Promise<void> {
+  return new Promise((resolve) => {
+    const wake = (): void => {
+      // Not Stop: it cancels the capture, and the cancelled capture then settles like any other.
+      if (!settledJobs.has(jobId) && !expired) return
+      settleWaiters.delete(wake)
+      window.clearTimeout(timer)
+      resolve()
+    }
+    let expired = false
+    const timer = window.setTimeout(() => {
+      expired = true
+      wake()
+    }, JOB_BACKSTOP_MS)
+    settleWaiters.add(wake)
+    wake()
+  })
 }
 
 /**
@@ -544,6 +573,9 @@ async function saveJob(job: CaptureJob, row: Row, run: Run): Promise<number | un
         { image, content: job.pageContent, imageOrigin: job.imageOrigin, imageScale: job.imageScale },
         undefined,
         { ...pdf, directLinks: pdf.directLinks && hasContent, textSearchable: pdf.textSearchable && hasContent },
+        // No yield between pages: nobody is watching this tab while a batch runs, and a background
+        // tab's throttled timers would turn each yield into a long wait.
+        () => Promise.resolve(),
       )
     } else {
       blob = await encodeImage(run.format, image, undefined, run.preferences.jpegQuality / 100, run.preferences.scale)
@@ -619,7 +651,7 @@ function createRow(url: string, position: number): Row {
   element.append(number, page, retry)
   const row: Row = { url, position, state: 'waiting', element, stateText, retry }
   retry.addEventListener('click', () => {
-    if (!running) requestAccessThenRun([row])
+    if (!running) askToStart([row])
   })
   setRowState(row, 'waiting', 'Waiting')
   return row
@@ -653,11 +685,6 @@ function formControls(): (HTMLInputElement | HTMLSelectElement)[] {
     subfolderSwitch,
     showFolderSwitch,
   ]
-}
-
-async function focusThisPage(): Promise<void> {
-  const own = await chrome.windows.getCurrent().catch(() => undefined)
-  if (own?.id !== undefined) await chrome.windows.update(own.id, { focused: true }).catch(() => undefined)
 }
 
 function showStatus(message: string, problem = false): void {
@@ -699,10 +726,6 @@ function checkedValue(group: HTMLElement): string | undefined {
 
 function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
 function requiredElement<T extends HTMLElement>(id: string): T {

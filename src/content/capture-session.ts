@@ -313,6 +313,24 @@ class CaptureSession {
    * exactly like a page that is genuinely blank there.
    */
   private degradations: Degradations = {}
+  /**
+   * Requests in progress. The watchdog exists for a worker that died *between* requests; while one
+   * is being served the worker is alive and waiting, and the usual reason a request is slow is that
+   * the page is not being drawn -- its window covered or minimised, or its tab not the one on show.
+   * Frame waits then hold until it is drawn again, and the capture carries on from where it was.
+   */
+  private busy = 0
+  /** Time the page spent hidden since it was last reported, so the capture's deadline can leave it out. */
+  private hiddenMs = 0
+  private hiddenSince: number | undefined = document.visibilityState === 'hidden' ? Date.now() : undefined
+  private readonly onVisibilityChange = (): void => {
+    if (document.visibilityState === 'hidden') {
+      this.hiddenSince ??= Date.now()
+    } else if (this.hiddenSince !== undefined) {
+      this.hiddenMs += Date.now() - this.hiddenSince
+      this.hiddenSince = undefined
+    }
+  }
 
   /**
    * What has gone wrong so far, as counted *since the last report*.
@@ -370,6 +388,7 @@ class CaptureSession {
     this.imageWaitMs = imageWaitMs
     this.armWatchdog()
     window.addEventListener('keydown', this.onEscape, true)
+    document.addEventListener('visibilitychange', this.onVisibilityChange)
     this.installCaptureStyles()
     await this.arriveAt(0)
     await this.settle()
@@ -538,8 +557,32 @@ class CaptureSession {
     this.armWatchdog()
   }
 
+  /** Runs one request's work with the watchdog held off; see `busy`. */
+  async serve<T>(work: () => Promise<T>): Promise<T> {
+    this.busy += 1
+    try {
+      return await work()
+    } finally {
+      this.busy -= 1
+      this.armWatchdog()
+    }
+  }
+
+  /** Hidden time since the last call, including a stretch still running now. */
+  takeHiddenMs(): number {
+    if (this.hiddenSince !== undefined) {
+      const now = Date.now()
+      this.hiddenMs += now - this.hiddenSince
+      this.hiddenSince = now
+    }
+    const taken = this.hiddenMs
+    this.hiddenMs = 0
+    return taken
+  }
+
   cleanup(): void {
     window.removeEventListener('keydown', this.onEscape, true)
+    document.removeEventListener('visibilitychange', this.onVisibilityChange)
     if (this.watchdog !== undefined) window.clearTimeout(this.watchdog)
     this.ledger.restore()
     this.target.restore(this.originalTargetOffset)
@@ -1038,6 +1081,10 @@ class CaptureSession {
   private armWatchdog(): void {
     if (this.watchdog !== undefined) window.clearTimeout(this.watchdog)
     this.watchdog = window.setTimeout(() => {
+      if (this.busy > 0) {
+        this.armWatchdog()
+        return
+      }
       this.cleanup()
       activeSession = undefined
     }, SESSION_WATCHDOG_MS)
@@ -1755,17 +1802,30 @@ async function handleRequest(request: ContentRequest): Promise<ContentResponse> 
         activeSession?.cleanup()
         const session = new CaptureSession(request.jobId)
         activeSession = session
-        const metrics = await session.prepare(request.sectionWaitMs, request.imageWaitMs)
+        const metrics = await session.serve(() => session.prepare(request.sectionWaitMs, request.imageWaitMs))
         assertStillCapturing(session)
-        return { ok: true, metrics, pageUrl: location.href, degradations: session.reportDegradations() }
+        return {
+          ok: true,
+          metrics,
+          pageUrl: location.href,
+          degradations: session.reportDegradations(),
+          hiddenMs: session.takeHiddenMs(),
+        }
       }
       case 'CAPTURE_POSITION': {
         const session = activeSession
         if (!session) throw new Error('Capture session is not prepared.')
-        const metrics = await session.position(request.scrollY, request.seenOverlayIds, request.depthLimit)
+        const metrics = await session.serve(() =>
+          session.position(request.scrollY, request.seenOverlayIds, request.depthLimit),
+        )
         assertStillCapturing(session)
-        return { ok: true, metrics, degradations: session.reportDegradations() }
+        return { ok: true, metrics, degradations: session.reportDegradations(), hiddenMs: session.takeHiddenMs() }
       }
+      case 'PAGE_VISIBLE':
+        // Asked repeatedly while a capture waits for its page to be on screen again, so it also keeps
+        // the session from being taken for abandoned in the meantime.
+        activeSession?.heartbeat()
+        return { ok: true, visible: document.visibilityState === 'visible' }
       case 'HEARTBEAT_CAPTURE':
         if (!activeSession) throw new Error('Capture session is not prepared.')
         activeSession.heartbeat()
@@ -1803,12 +1863,10 @@ class SessionEndedError extends Error {
 /**
  * Whether the session a request started with is still the one capturing, after its awaits.
  *
- * Every frame wait in a session is `requestAnimationFrame`, and a browser does not run those in a
- * page it is not drawing -- a minimised window, or one covered by another. A single capture never
- * meets this, because the page is the one the user is looking at; a batch, whose window can end up
- * behind another, does. The wait then stalls until the watchdog restores the page and clears the
- * session, and the request carries on afterwards. Reading the cleared session here was a raw
- * `TypeError`; the cause is now said instead.
+ * A request's session can be cleared underneath it -- by CLEANUP_CAPTURE from a worker that gave
+ * up, or by a watchdog that fired before `serve` existed to hold it off -- and the request then
+ * carries on after its awaits. Reading the cleared session was a raw `TypeError` ("reading
+ * 'reportDegradations'"); the cause is now said instead.
  *
  * Restoring once more is not redundant: the steps that ran after the watchdog fired had nothing
  * left to record their changes against except this session's ledger.

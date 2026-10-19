@@ -66,10 +66,16 @@ export function contentScale(source: PdfSource): { x: number; y: number } {
  * Each page is rendered straight from the tiles, so a PDF of a very long capture never needs the
  * whole image in memory at once — only one page-sized slice.
  */
+/**
+ * `yieldBetweenPages` lets the page stay responsive while a long PDF is written. A caller nobody is
+ * watching -- the batch page, a background tab whose timers are throttled -- passes one that does
+ * not wait.
+ */
 export async function createPdfBlob(
   source: PdfSource,
   crop = fullImageCrop(source.image.width, source.image.height),
   options: PdfOptions = DEFAULT_PDF_OPTIONS,
+  yieldBetweenPages: () => Promise<unknown> = () => new Promise((resolve) => window.setTimeout(resolve, 0)),
 ): Promise<Blob> {
   const plans = planPdfPages(crop, options)
   const pages: PdfPage[] = []
@@ -90,7 +96,7 @@ export async function createPdfBlob(
       links: options.directLinks ? linksFor(plan, source) : [],
       runs: options.textSearchable ? runsFor(plan, source) : [],
     })
-    await new Promise((resolve) => window.setTimeout(resolve, 0))
+    await yieldBetweenPages()
   }
 
   // The chunks are handed to Blob as-is. Joining them first would copy the entire PDF a second time,
