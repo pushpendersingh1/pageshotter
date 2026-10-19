@@ -57,6 +57,7 @@ src/
   result/result.ts               preview and export UI
   result/pdf-export.ts           PDF writer (hand-written, no dependencies)
   editor/scene.ts                the editor's document and every number derived from it
+  batch/batch.ts                 batch capture: opens each listed page, then saves it like the result page
   shared/                        messages, geometry, capture limits, IndexedDB, errors
 ```
 
@@ -65,6 +66,16 @@ Three roles, kept separate:
 - **Content script** measures and mutates the page. It never captures.
 - **Service worker** drives the loop and calls Chrome's capture API. It never touches the DOM.
 - **Result page** assembles and exports. It never talks to the page.
+- **Batch page** opens and loads each listed page in a tab beside itself, asks the worker to capture
+  it (`START_BATCH_CAPTURE`, which opens no result page), then assembles and saves it the way the
+  result page would. It never talks to the page either. It is a background tab while it runs, so it
+  waits on events (`BATCH_JOB_SETTLED`, tab updates), never on a polling timer the browser throttles.
+
+A capture whose page goes off screen -- tab switched away from, window covered or minimised --
+**pauses and carries on**; it does not fail. The browser draws nothing for such a page, so frame
+waits hold, the worker waits for the page to be on screen before each screenshot and positions the
+section again afterwards, and the content watchdog does not fire while a request is being served.
+Time spent hidden is left out of the capture deadline.
 
 Segments travel through IndexedDB (`shared/capture-db.ts`), not through service-worker memory, and
 are deleted after assembly, failure, or cancellation.
@@ -80,7 +91,9 @@ and a pull request that breaks one will not be merged.
 
 - **Required permissions stay at `activeTab` + `scripting` + `contextMenus`.** No host permissions, no `tabs`, no
   `debugger`, and no required `downloads`. `downloads` exists only under `optional_permissions`,
-  requested at runtime when the user saves into a folder. A new permission also changes the store
+  requested at runtime when the user saves into a folder or starts a batch. `<all_urls>` exists only
+  under `optional_host_permissions`, requested when a batch starts (`captureVisibleTab` accepts
+  nothing narrower), and nothing but batch capture may depend on it. A new permission also changes the store
   listing and the privacy policy, so it needs discussion in an issue first.
 - **Anything newly persisted is a disclosure change**, even when it needs no permission. IndexedDB
   asks Chrome for nothing, so the permission rule above never fires on it. If a change stores a new

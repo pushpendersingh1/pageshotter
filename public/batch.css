@@ -1,0 +1,52 @@
+/*
+ * Batch capture. The frame comes from `page-frame.css`, the cards, fields and controls from
+ * `settings.css` -- this page is a settings-shaped form with a list under it -- and the colours from
+ * `tokens.css`. Only the list box, the run controls and the progress list are its own.
+ */
+
+#urls {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 13px/1.55 var(--mono);
+  padding: 9px 11px;
+}
+#urls:focus-visible { border-color: var(--select); outline: none; }
+#urls:disabled { opacity: .6; }
+
+/* Outside the cards, like Settings' reset: starting is what the page is for, not another option. */
+.batch-actions { display: flex; max-width: 760px; align-items: center; justify-content: flex-end; gap: 10px; }
+.batch-actions .note { margin-right: auto; }
+
+/* The primary action, in the one filled colour the system keeps for it. Hover is restated because
+   `.btn:not(:disabled):hover` outranks `.btn.primary`; see `page-frame.css` on `.btn.danger`. */
+.btn.primary { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+.btn.primary:not(:disabled):hover { color: var(--on-accent); background: var(--accent); border-color: var(--accent); filter: brightness(1.08); }
+
+.report { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.report li {
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr) auto;
+  column-gap: 10px;
+  align-items: center;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.report li:first-child { border-top: 0; }
+.report .position { font: 600 12px/1 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.report .page { display: grid; gap: 2px; min-width: 0; }
+.report .address { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 13px/1.4 var(--ui); color: var(--ink); }
+.report .state { font: 400 12.5px/1.5 var(--ui); color: var(--ink-2); }
+/* 14px, because --accent text is only legible at that size on a light ground. */
+.report li[data-state='failed'] .state { color: var(--accent); font-size: 14px; }
+.report li[data-state='saved'] .state { color: var(--ink); }
+.report li[data-active='true'] .address { font-weight: 600; }
+
+@media (max-width: 560px) {
+  .batch-actions { flex-wrap: wrap; }
+  .batch-actions .note { flex-basis: 100%; }
+}
