@@ -146,3 +146,20 @@ export async function getAutoDownload(): Promise<boolean> {
 export async function setAutoDownload(on: boolean): Promise<void> {
   await putSetting(AUTO_DOWNLOAD_KEY, on === true)
 }
+
+const CONTEXT_MENU_KEY = 'contextMenu'
+export const DEFAULT_CONTEXT_MENU = true
+
+/**
+ * Whether the capture items appear in the page's right-click menu.
+ *
+ * On by default, so anything but a stored `false` reads as on: the browser offers no way to hide one
+ * extension's menu items, which makes this switch the only way out short of uninstalling.
+ */
+export async function getContextMenu(): Promise<boolean> {
+  return (await getSetting<unknown>(CONTEXT_MENU_KEY)) !== false
+}
+
+export async function setContextMenu(on: boolean): Promise<void> {
+  await putSetting(CONTEXT_MENU_KEY, on === true)
+}

@@ -56,7 +56,7 @@
 ## Privacy
 
 PageShotter makes no network requests. There is no server, account, analytics or remote code, and
-its only required permissions are `activeTab` and `scripting`. `downloads` is optional and requested
+its only required permissions are `activeTab`, `scripting` and `contextMenus` (the right-click menu). `downloads` is optional and requested
 only if you choose to save into a folder. Everything it keeps is in the extension's own browser
 storage; [`public/welcome.html`](public/welcome.html) lists exactly what is stored and for how long.
 

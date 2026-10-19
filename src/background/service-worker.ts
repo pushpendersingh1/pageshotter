@@ -26,6 +26,7 @@ import {
 import { getImageWaitMs, getSectionWaitMs } from '../shared/capture-wait'
 import { clearDownloadFolderRevokedBefore, getAutoDownload, getDownloadFolder } from '../shared/history-settings'
 import { canSaveUnattended } from '../shared/auto-download'
+import { contextMenuMode, refreshContextMenu } from '../shared/context-menu'
 import { putReviewInstalledAt, recordCaptureFailed } from '../shared/review-prompt'
 import { pruneHistory } from '../shared/history-prune'
 import { CAPTURE_RETRY_POLICY, captureRetryDelayMs, isCaptureQuotaError } from '../shared/capture-retry'
@@ -92,6 +93,8 @@ chrome.runtime.onMessage.addListener(
  * Neither `onInstalled` nor `tabs.create` requires a permission, so the permission list is unchanged.
  */
 chrome.runtime.onInstalled.addListener(({ reason }) => {
+  // Every reason, not only a fresh install: an update is when a new item or title reaches the menu.
+  void refreshContextMenu().catch(() => undefined)
   if (reason !== 'install') return
   // The review ask counts from this day; an update must not reset it.
   void putReviewInstalledAt(Date.now()).catch(() => undefined)
@@ -110,17 +113,39 @@ const COMMAND_MODES: Record<string, CaptureMode> = {
 
 chrome.commands.onCommand.addListener((command, tab) => {
   const mode = COMMAND_MODES[command]
-  if (mode === undefined || tab?.id === undefined) return
-  // The popup reports its own failures, but a keyboard shortcut has no surface of its own: without
-  // this the whole extension looks dead when a capture refuses to start.
-  void startup
-    .then(() => createCapture(mode, tab))
-    .catch((error: unknown) => reportCommandFailure(error, tab, mode))
+  if (mode === undefined) return
+  startWithoutPopup(mode, tab)
+})
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  const mode = contextMenuMode(info.menuItemId)
+  if (mode === undefined) return
+  startWithoutPopup(mode, tab)
+})
+
+/*
+ * Chrome keeps menu items across restarts and Firefox's event page may not, so they are rebuilt on
+ * startup as well as on install. Rebuilding is idempotent, so doing it in both is harmless.
+ */
+chrome.runtime.onStartup.addListener(() => {
+  void refreshContextMenu().catch(() => undefined)
 })
 
 /**
- * Shows a shortcut-triggered failure the only way a shortcut can: by opening the result page with a
- * failed job, exactly as an interrupted capture does.
+ * A capture started from a shortcut or the right-click menu. The popup reports its own failures,
+ * but these have no surface of their own: without the report the whole extension looks dead when a
+ * capture refuses to start.
+ */
+function startWithoutPopup(mode: CaptureMode, tab: chrome.tabs.Tab | undefined): void {
+  if (tab?.id === undefined) return
+  void startup
+    .then(() => createCapture(mode, tab))
+    .catch((error: unknown) => reportCommandFailure(error, tab, mode))
+}
+
+/**
+ * Shows a shortcut- or menu-triggered failure the only way either can: by opening the result page
+ * with a failed job, exactly as an interrupted capture does.
  */
 async function reportCommandFailure(
   error: unknown,

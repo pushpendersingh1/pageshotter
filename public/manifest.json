@@ -7,6 +7,7 @@
   "description": "Capture, edit, and annotate full-page, visible-area, or element screenshots locally. Export searchable PDFs with clickable links.",
   "permissions": [
     "activeTab",
+    "contextMenus",
     "scripting"
   ],
   "optional_permissions": [

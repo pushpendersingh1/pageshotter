@@ -78,7 +78,7 @@ geometry is how a preview and an exported file come to disagree.
 These are product requirements, not preferences. Breaking one is a store-review or user-trust risk,
 and a pull request that breaks one will not be merged.
 
-- **Required permissions stay at `activeTab` + `scripting`.** No host permissions, no `tabs`, no
+- **Required permissions stay at `activeTab` + `scripting` + `contextMenus`.** No host permissions, no `tabs`, no
   `debugger`, and no required `downloads`. `downloads` exists only under `optional_permissions`,
   requested at runtime when the user saves into a folder. A new permission also changes the store
   listing and the privacy policy, so it needs discussion in an issue first.
