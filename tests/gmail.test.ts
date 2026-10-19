@@ -1,19 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import manifest from '../public/manifest.json'
-import { GMAIL_ATTACHMENT_LIMIT, GMAIL_ORIGIN, gmailComposeUrl, gmailSizeProblem, isGmailPage } from '../src/result/gmail'
+import { GMAIL_ATTACHMENT_LIMIT, GMAIL_COMPOSE_URL, GMAIL_ORIGIN, gmailSizeProblem, isGmailPage } from '../src/result/gmail'
 
-describe('gmailComposeUrl', () => {
-  it('opens a compose window with the subject and body filled in', () => {
-    const url = new URL(gmailComposeUrl('Pricing & plans', 'https://example.com/pricing?a=1'))
-    expect(url.origin + url.pathname).toBe('https://mail.google.com/mail/')
-    expect(url.searchParams.get('view')).toBe('cm')
-    expect(url.searchParams.get('su')).toBe('Pricing & plans')
-    expect(url.searchParams.get('body')).toBe('https://example.com/pricing?a=1')
-  })
-
-  /* A restricted page stores no address, and an empty body is better than the word "undefined". */
-  it('leaves the body out when there is no address', () => {
-    expect(new URL(gmailComposeUrl('Title', undefined)).searchParams.has('body')).toBe(false)
+describe('GMAIL_COMPOSE_URL', () => {
+  /* The compose-only page (`?view=cm`) fills the tab and hides the inbox. */
+  it('opens the inbox with a new message over it, and is a page the attach waits for', () => {
+    const url = new URL(GMAIL_COMPOSE_URL)
+    expect(url.search).toBe('')
+    expect(url.hash).toBe('#inbox?compose=new')
+    expect(isGmailPage(GMAIL_COMPOSE_URL)).toBe(true)
   })
 })
 

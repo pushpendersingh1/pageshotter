@@ -2198,7 +2198,7 @@ async function print(): Promise<void> {
   })
 }
 
-/** Sends what Download would save to a new Gmail compose window. */
+/** Sends what Download would save to a new message in Gmail. */
 async function email(access: Promise<boolean>): Promise<void> {
   await busy(gmailButton, 'Opening Gmail…', async () => {
     if (!(await access)) throw new Error('Gmail access was not allowed, so nothing was sent.')
@@ -2206,7 +2206,7 @@ async function email(access: Promise<boolean>): Promise<void> {
     const blob = await encode(format, exportMenu.scale())
     const tooLarge = gmailSizeProblem(blob.size)
     if (tooLarge) throw new Error(tooLarge)
-    const outcome = await sendToGmail(blob, `pageshotter-edited.${exportFileExtension(format)}`, pageTitle, pageUrl)
+    const outcome = await sendToGmail(blob, `pageshotter-edited.${exportFileExtension(format)}`)
     if (outcome !== 'attached') throw new Error(gmailOutcomeMessage(outcome))
   })
 }

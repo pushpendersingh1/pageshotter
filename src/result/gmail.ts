@@ -4,9 +4,10 @@ import { formatBytes } from './export-options'
  * Send to Gmail: a new compose window in the user's own Gmail with the export already attached.
  *
  * There is no Gmail API, OAuth client or SDK here, and the extension still makes no network request
- * of its own. It opens Gmail's compose address in a tab, waits for Gmail to load there -- through
- * Google's sign-in first, if need be -- and hands the file to the compose window's attachment input,
- * which is what choosing it from the paperclip does. Google receives the file from the user's Gmail,
+ * of its own. It opens the user's inbox with a new message open in the corner, exactly as Compose
+ * would leave it, waits for Gmail to load there -- through Google's sign-in first, if need be -- and
+ * hands the file to that message's attachment input, which is what choosing it from the paperclip
+ * does. Google receives the file from the user's Gmail,
  * because they asked to email it.
  *
  * The one permission this needs, `https://mail.google.com/*`, is optional and asked for on the first
@@ -24,17 +25,20 @@ export const GMAIL_ATTACHMENT_LIMIT = 25 * 1024 * 1024
 /** Long enough to sign in, two-factor prompt included; after that nobody is still waiting. */
 const SIGN_IN_TIMEOUT_MS = 5 * 60_000
 
-/** How long the compose window has to appear once Gmail itself has loaded. */
-const COMPOSE_TIMEOUT_MS = 30_000
+/** How long the new message has to appear once the page has loaded; the inbox starts slowly. */
+const COMPOSE_TIMEOUT_MS = 60_000
+
+/** The new message's subject. The page's own title is left out: it may be private. */
+export const GMAIL_SUBJECT = 'Screenshot from PageShotter'
 
 export type GmailOutcome = 'attached' | 'no-compose' | 'closed' | 'timeout'
 
-/** Gmail's own compose-only address. `fs=1` fills the tab with it, rather than a box over the inbox. */
-export function gmailComposeUrl(subject: string, body: string | undefined): string {
-  const params = new URLSearchParams({ view: 'cm', fs: '1', su: subject })
-  if (body) params.set('body', body)
-  return `https://mail.google.com/mail/?${params.toString()}`
-}
+/**
+ * The inbox with a new message open over it, in the default account. Not `?view=cm`, Gmail's
+ * compose-only page: that one fills the tab, cannot be minimised and shows no mail. The cost is that
+ * this address cannot carry a subject, so the subject is typed in with the attachment.
+ */
+export const GMAIL_COMPOSE_URL = 'https://mail.google.com/mail/u/0/#inbox?compose=new'
 
 /** Gmail proper, as opposed to the sign-in pages and redirects in front of it. */
 export function isGmailPage(url: string | undefined): boolean {
@@ -54,7 +58,7 @@ export function gmailSizeProblem(bytes: number): string | undefined {
 export function gmailOutcomeMessage(outcome: Exclude<GmailOutcome, 'attached'>): string {
   switch (outcome) {
     case 'no-compose':
-      return 'Gmail opened, but its compose window did not appear, so nothing was attached. Download the file and attach it there.'
+      return 'Gmail opened, but a new message did not appear, so nothing was attached. Download the file and attach it there.'
     case 'closed':
       return 'The Gmail tab was closed before the screenshot could be attached.'
     case 'timeout':
@@ -75,10 +79,10 @@ export function requestGmailAccess(): Promise<boolean> {
 }
 
 /** Open a compose window and attach `file` to it once Gmail has loaded. */
-export async function sendToGmail(file: Blob, filename: string, subject: string, body?: string): Promise<GmailOutcome> {
+export async function sendToGmail(file: Blob, filename: string): Promise<GmailOutcome> {
   // Encoded before the tab opens, so the wait for Gmail is not also a wait for this.
   const base64 = await toBase64(file)
-  const tab = await chrome.tabs.create({ url: gmailComposeUrl(subject, body) })
+  const tab = await chrome.tabs.create({ url: GMAIL_COMPOSE_URL })
   if (tab.id === undefined) return 'closed'
   const tabId = tab.id
 
@@ -102,7 +106,7 @@ export async function sendToGmail(file: Blob, filename: string, subject: string,
         .executeScript({
           target: { tabId },
           func: attachToCompose,
-          args: [base64, filename, file.type, COMPOSE_TIMEOUT_MS],
+          args: [base64, filename, file.type, GMAIL_SUBJECT, COMPOSE_TIMEOUT_MS],
         })
         .then(([result]) => finish(result?.result === true ? 'attached' : 'no-compose'))
         // The page navigated away under the script, as Gmail does once more while it starts. The
@@ -130,12 +134,24 @@ async function toBase64(file: Blob): Promise<string> {
 /**
  * Runs inside the Gmail tab, so it is serialised on its own and may use nothing from this module.
  *
- * The file goes in through the compose window's attachment input -- present in the compose window
- * whether or not the paperclip has been pressed -- rather than by a simulated drop, because Gmail
- * puts a dropped image inline in the message body, and a full-page screenshot is an attachment.
- * Resolves false if no compose window appears in time.
+ * Google's sign-in can drop the `#inbox?compose=new` it was sent on with, so the address asks for a
+ * new message again if it no longer does; Gmail reads it when it starts and on every change.
+ *
+ * The new message is recognised by its subject box, and the newest one wins, so a draft the user
+ * already had open is left alone. The file goes in through that message's own attachment input --
+ * present whether or not the paperclip has been pressed -- rather than by a simulated drop, because
+ * Gmail puts a dropped image inline in the message body, and a full-page screenshot is an
+ * attachment. Resolves false if no new message appears in time.
  */
-async function attachToCompose(base64: string, filename: string, type: string, timeoutMs: number): Promise<boolean> {
+async function attachToCompose(
+  base64: string,
+  filename: string,
+  type: string,
+  subject: string,
+  timeoutMs: number,
+): Promise<boolean> {
+  if (!location.hash.includes('compose=')) location.hash = 'inbox?compose=new'
+
   const binary = atob(base64)
   const bytes = new Uint8Array(binary.length)
   for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index)
@@ -143,10 +159,19 @@ async function attachToCompose(base64: string, filename: string, type: string, t
 
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    const input =
-      document.querySelector<HTMLInputElement>('input[type="file"][name="Filedata"]') ??
-      document.querySelector<HTMLInputElement>('input[type="file"]')
-    if (input) {
+    const subjects = document.querySelectorAll<HTMLInputElement>('input[name="subjectbox"]')
+    const subjectBox = subjects[subjects.length - 1]
+    // The message's attachment input sits beside its subject box, inside the closest ancestor that
+    // holds one.
+    let input: HTMLInputElement | null = null
+    for (let node = subjectBox?.parentElement; node && !input; node = node.parentElement) {
+      input = node.querySelector<HTMLInputElement>('input[type="file"]')
+    }
+    if (subjectBox && input) {
+      if (subjectBox.value === '') {
+        subjectBox.value = subject
+        subjectBox.dispatchEvent(new Event('input', { bubbles: true }))
+      }
       const transfer = new DataTransfer()
       transfer.items.add(file)
       input.files = transfer.files

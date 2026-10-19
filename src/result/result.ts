@@ -967,7 +967,7 @@ async function printCapture(): Promise<void> {
 
 /**
  * Send the file Download would save -- the same format, quality, scale, crop and name -- to a new
- * Gmail compose window.
+ * message in Gmail.
  */
 async function emailCapture(access: Promise<boolean>): Promise<void> {
   await withButton(gmailButton, 'Opening Gmail…', async () => {
@@ -989,7 +989,7 @@ async function emailCapture(access: Promise<boolean>): Promise<void> {
       return
     }
     const filename = suggestedFilename({ title: pageTitle, url: pageUrl, capturedAt, extension: exportFileExtension(format) })
-    const outcome = await sendToGmail(blob, filename, pageTitle, pageUrl)
+    const outcome = await sendToGmail(blob, filename)
     if (outcome !== 'attached') {
       showExportError([noticeText(gmailOutcomeMessage(outcome))])
       return
