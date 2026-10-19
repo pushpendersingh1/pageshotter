@@ -8,20 +8,27 @@
 </p>
 
 <p align="center">
-  Full-page, visible-area and selection screenshots for Chrome, captured and edited entirely on your
-  own computer. Export PNG, JPEG, WebP, or a PDF with searchable text and clickable links.
+  Full-page, visible-area and selection screenshots for Chrome and Firefox, captured and edited
+  entirely on your own computer. Export PNG, JPEG, WebP, or a PDF with searchable text and
+  clickable links.
 </p>
 
 <p align="center">
   <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf"><img src="https://img.shields.io/chrome-web-store/v/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20Web%20Store&amp;color=E11900" alt="Chrome Web Store version" /></a>
+  <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf"><img src="https://img.shields.io/chrome-web-store/users/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20users" alt="Chrome Web Store users" /></a>
+  <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf/reviews"><img src="https://img.shields.io/chrome-web-store/rating/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20rating" alt="Chrome Web Store rating" /></a>
+  <a href="https://addons.mozilla.org/firefox/addon/pageshotter/"><img src="https://img.shields.io/amo/v/pageshotter?label=Firefox%20Add-ons&amp;color=E11900" alt="Firefox Add-ons version" /></a>
   <a href="https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml"><img src="https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml/badge.svg" alt="verify" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/pushpendersingh1/pageshotter" alt="MIT License" /></a>
 </p>
 
 <p align="center">
-  <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf"><strong>Install from the Chrome Web Store</strong></a> ·
+  <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf"><strong>Add to Chrome</strong></a> ·
+  <a href="https://addons.mozilla.org/firefox/addon/pageshotter/"><strong>Add to Firefox</strong></a> ·
   <a href="https://www.pageshotter.com">Website</a> ·
   <a href="https://www.pageshotter.com/privacy/">Privacy policy</a>
+  <br />
+  <sub>Chrome 120 or later. Firefox 153 or later, on desktop.</sub>
 </p>
 
 <p align="center">
@@ -56,6 +63,24 @@
   </tr>
 </table>
 
+## Why you can trust it
+
+- **The code is all here.** Every line of the extension is in this repository under the MIT license,
+  and the packages in both stores are built from it with `npm run package` and
+  `npm run package:firefox`.
+- **Both stores reviewed it.** Google reviews every release before it reaches the Chrome Web Store.
+  Mozilla reviewed it before listing it on Firefox Add-ons, with the full source and the build
+  instructions submitted alongside the package.
+- **Nothing leaves your computer.** No server, account, analytics, webfont or remote code: what the
+  stores reviewed is all that runs. The permissions are listed below, and the optional ones are asked
+  for only when you use the feature that needs them.
+- **No site-specific tricks.** Difficult pages are handled by generic detection, never by a list of
+  websites, and every change made to a page while capturing it is undone afterwards, including when a
+  capture fails or is cancelled.
+- **Tested on every change.** Each pull request runs the linter, the type checker, the unit tests and
+  a build for every browser (the `verify` badge above). Before a release, captures are checked by
+  hand against a corpus of difficult pages in each browser.
+
 ## Privacy
 
 PageShotter makes no network requests. There is no server, account, analytics or remote code, and
@@ -67,7 +92,7 @@ storage; [`public/welcome.html`](public/welcome.html) lists exactly what is stor
 
 ## Build and load it yourself
 
-Requires Node.js 22+ and Chrome or Edge 120+.
+Requires Node.js 22+, and Chrome or Edge 120+ or Firefox 153+.
 
 ```bash
 npm ci
