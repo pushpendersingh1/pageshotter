@@ -22,10 +22,13 @@ import {
 } from '../shared/capture-wait'
 import {
   DEFAULT_AUTO_DOWNLOAD,
+  DEFAULT_CONTEXT_MENU,
   DEFAULT_DOWNLOAD_FOLDER,
   DEFAULT_HISTORY_SETTINGS,
   getAutoDownload,
   setAutoDownload,
+  getContextMenu,
+  setContextMenu,
   getDownloadFolder,
   clearDownloadFolderRevokedBefore,
   getHistorySettings,
@@ -35,6 +38,7 @@ import {
 import { folderProblem, sanitiseFolder } from '../shared/download-folder'
 import { deleteHistoryEntries, listHistory } from '../shared/capture-db'
 import { captureShortcut } from '../shared/shortcut'
+import { showContextMenu } from '../shared/context-menu'
 import { applyStoredTheme, wireThemeButton } from '../shared/theme'
 import {
   EXPORT_FORMATS,
@@ -92,6 +96,7 @@ const folderCommit = requiredElement<HTMLButtonElement>('folder-commit')
 const folderStatus = requiredElement<HTMLParagraphElement>('folder-status')
 const autoDownload = requiredElement<HTMLInputElement>('auto-download')
 const autoDownloadCaution = requiredElement<HTMLParagraphElement>('auto-download-caution')
+const contextMenuSwitch = requiredElement<HTMLInputElement>('context-menu')
 const exportFormatGroup = requiredElement<HTMLElement>('export-format')
 const exportQualitySelect = requiredElement<HTMLSelectElement>('export-quality')
 const exportQualityCaution = requiredElement<HTMLParagraphElement>('export-quality-caution')
@@ -140,6 +145,14 @@ async function initialise(): Promise<void> {
   autoDownload.addEventListener('change', () => {
     void setAutoDownload(autoDownload.checked)
       .then(drawAutoDownloadCaution)
+      .catch(() => showSettingsAlert('That setting could not be saved.', true))
+  })
+
+  contextMenuSwitch.checked = await getContextMenu()
+  contextMenuSwitch.addEventListener('change', () => {
+    const on = contextMenuSwitch.checked
+    void setContextMenu(on)
+      .then(() => showContextMenu(on))
       .catch(() => showSettingsAlert('That setting could not be saved.', true))
   })
 
@@ -463,6 +476,7 @@ async function resetToDefaults(): Promise<void> {
       setSectionWaitMs(DEFAULT_SECTION_WAIT_MS),
       setImageWaitMs(DEFAULT_IMAGE_WAIT_MS),
       setAutoDownload(DEFAULT_AUTO_DOWNLOAD),
+      setContextMenu(DEFAULT_CONTEXT_MENU).then(() => showContextMenu(DEFAULT_CONTEXT_MENU)),
       setDownloadFolder(DEFAULT_DOWNLOAD_FOLDER),
       setExportPreferences(DEFAULT_EXPORT_PREFERENCES),
     ])
@@ -473,6 +487,7 @@ async function resetToDefaults(): Promise<void> {
     sectionWaitSelect.value = String(DEFAULT_SECTION_WAIT_MS)
     imageWaitSelect.value = String(DEFAULT_IMAGE_WAIT_MS)
     autoDownload.checked = DEFAULT_AUTO_DOWNLOAD
+    contextMenuSwitch.checked = DEFAULT_CONTEXT_MENU
     savedDownloadFolder = DEFAULT_DOWNLOAD_FOLDER
     downloadFolder.value = DEFAULT_DOWNLOAD_FOLDER
     exportPreferences = structuredClone(DEFAULT_EXPORT_PREFERENCES)

@@ -119,7 +119,7 @@
               <td>With its capture</td>
             </tr>
             <tr>
-              <td>Your settings: how long to keep history, how a capture behaves (how deep to go on a page that keeps loading, the pause between scrolls, and how long a section waits for its images), the colour theme, your export choices, how you present a capture (the mock browser frame, its address text, background, margin, corners, shadow and date stamp), the editor's panel layout, your recently placed emoji, the defaults you have saved in the editor (the appearance each tool's new shapes start with, and how a new capture is presented), the download folder and its last-change time (`PageShotter` inside Downloads by default), whether a finished capture saves itself instead of opening, and counters of your successful exports, the extension's install date and whether a store review has been asked for, kept only so the extension asks for a review only after real use</td>
+              <td>Your settings: how long to keep history, how a capture behaves (how deep to go on a page that keeps loading, the pause between scrolls, and how long a section waits for its images), the colour theme, your export choices, how you present a capture (the mock browser frame, its address text, background, margin, corners, shadow and date stamp), the editor's panel layout, your recently placed emoji, the defaults you have saved in the editor (the appearance each tool's new shapes start with, and how a new capture is presented), the download folder and its last-change time (`PageShotter` inside Downloads by default), whether a finished capture saves itself instead of opening, whether the right-click menu shows the capture items, and counters of your successful exports, the extension's install date and whether a store review has been asked for, kept only so the extension asks for a review only after real use</td>
               <td>So the extension works the way you set it. The folder time prevents an old permission event clearing a newer choice; the theme is also kept in browser storage so a page never flashes the wrong palette</td>
               <td>Until you change them</td>
             </tr>
@@ -136,7 +136,7 @@
 
       <section class="block" aria-labelledby="permissions-heading">
         <span class="eyebrow" id="permissions-heading">Why it asks for so little</span>
-        <div class="cards two">
+        <div class="cards">
           <article class="card">
             <h2><code>activeTab</code></h2>
             <p>
@@ -149,6 +149,13 @@
             <p>
               Permission to run the measuring and scrolling code inside that tab. It works only where
               <code>activeTab</code> has already been granted.
+            </p>
+          </article>
+          <article class="card">
+            <h2><code>contextMenus</code></h2>
+            <p>
+              Adds the capture items to a page's right-click menu. Choosing one grants
+              <code>activeTab</code> for that tab, just as clicking Capture does. Turn it off in Settings.
             </p>
           </article>
         </div>
