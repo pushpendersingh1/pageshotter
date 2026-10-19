@@ -10,11 +10,11 @@
 ### Full-page screenshots, taken and kept on your own computer.
 
 Capture a whole page, the visible area or a selection, then edit it and export PNG, JPEG, WebP, or a
-PDF with searchable text and clickable links. For Chrome, Brave, Firefox and Zen. No account,
-nothing uploaded.
+PDF with searchable text and clickable links. For Chrome, Brave, Firefox and Zen. No account, and
+nothing uploaded unless you send it.
 
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20Web%20Store&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf) [![Chrome users](https://img.shields.io/chrome-web-store/users/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20users&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf) [![Chrome rating](https://img.shields.io/chrome-web-store/rating/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20rating&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf/reviews) [![Firefox Add-ons](https://img.shields.io/amo/v/pageshotter?label=Firefox%20Add-ons&color=FF7139)](https://addons.mozilla.org/firefox/addon/pageshotter/)<br />
-[![verify](https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml/badge.svg)](https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/github/license/pushpendersingh1/pageshotter?color=1B1A17)](LICENSE) [![No account](https://img.shields.io/badge/account-none-1B1A17)](#privacy) [![Nothing uploaded](https://img.shields.io/badge/uploads-none-1B1A17)](#privacy)
+[![verify](https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml/badge.svg)](https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/github/license/pushpendersingh1/pageshotter?color=1B1A17)](LICENSE) [![No account](https://img.shields.io/badge/account-none-1B1A17)](#privacy) [![Uploads only when you send](https://img.shields.io/badge/uploads-only%20when%20you%20send-1B1A17)](#privacy)
 
 <br />
 
@@ -82,6 +82,8 @@ nothing uploaded.
 - **Batch capture** *(next release)*. Paste a list of addresses, or pick from the tabs open in a
   window; each page is captured and saved as its own file, with a report of anything that failed and
   a Retry for it. Open tabs are captured where they are, as they are, and left open.
+- **Send to Gmail** *(next release)*. Opens a new Gmail message with the screenshot already attached,
+  in the format you picked; you write it and press Send.
 
 <table>
   <tr>
@@ -102,8 +104,9 @@ nothing uploaded.
 - **Both stores reviewed it.** Google reviews every release before it reaches the Chrome Web Store.
   Mozilla reviewed it before listing it on Firefox Add-ons, with the full source and the build
   instructions submitted alongside the package.
-- **Nothing leaves your computer.** No server, account, analytics, webfont or remote code: what the
-  stores reviewed is all that runs. The permissions are listed below, and the optional ones are asked
+- **Nothing leaves your computer unless you send it.** No server, account, analytics, webfont or
+  remote code: what the stores reviewed is all that runs. Send to Gmail puts the file in your own
+  Gmail, only when you press it. The permissions are listed below, and the optional ones are asked
   for only when you use the feature that needs them.
 - **No site-specific tricks.** Difficult pages are handled by generic detection, never by a list of
   websites, and every change made to a page while capturing it is undone afterwards, including when a
@@ -115,7 +118,8 @@ nothing uploaded.
 ## Privacy
 
 PageShotter makes no network requests. There is no server, account, analytics or remote code, and
-everything it keeps stays in the extension's own browser storage; [`public/welcome.html`](public/welcome.html)
+everything it keeps stays in the extension's own browser storage. A screenshot leaves your computer
+only when you press Gmail, which attaches it to a new message in your own Gmail tab; [`public/welcome.html`](public/welcome.html)
 lists exactly what is stored and for how long.
 
 <details>
@@ -130,9 +134,10 @@ lists exactly what is stored and for how long.
 | `contextMenus` | On install *(next release)* | Adds the capture items to the page's right-click menu. |
 | `downloads` | Only when needed | When you choose to save into a folder, or start a batch capture. |
 | Access to all websites | Only when needed *(next release)* | When you start a batch capture or list your open tabs for one: the browser lets an extension read another tab's address, or capture a tab you didn't click it on, only with this access. |
+| Access to `mail.google.com` | Only when needed *(next release)* | When you press Gmail: it lets PageShotter open a new message in your Gmail tab and attach the screenshot to it. |
 
 There is no `storage`, `history`, `cookies` or `webRequest` permission, and no standing access to the
-sites you visit.
+sites you visit or to your Gmail.
 
 </details>
 
