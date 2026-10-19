@@ -103,13 +103,17 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 })
 
 /**
- * `capture-visible-area` ships with no `suggested_key`: Chrome allows only four suggested bindings,
- * and more importantly an unrequested second default is a combination taken from every other
- * extension the user has. It appears unbound on chrome://extensions/shortcuts for anyone who wants it.
+ * Each mode suggests Shift with 7, 8 or 9 -- Alt elsewhere, Command on a Mac. Digits, because Option
+ * with a letter types a character on a Mac whenever the binding was not granted, and Command+Shift
+ * with a letter is mostly the browser's own (private window, paste and match style, Firefox's
+ * screenshots). 7 to 9, because macOS keeps Command+Shift+3 to 5 for its screenshots and the low
+ * digits are what other screenshot extensions claim; a suggestion that is taken at install is
+ * silently left unbound.
  */
 const COMMAND_MODES: Record<string, CaptureMode> = {
   'capture-full-page': 'full',
   'capture-visible-area': 'visible',
+  'capture-selection': 'region',
 }
 
 chrome.commands.onCommand.addListener((command, tab) => {

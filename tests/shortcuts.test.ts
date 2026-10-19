@@ -11,6 +11,7 @@ import {
   typingOwnsKey,
 } from '../src/editor/shortcuts'
 import { parseChromeShortcut } from '../src/shared/keycaps'
+import manifest from '../public/manifest.json'
 
 describe('the ? sheet data', () => {
   const rows = SHORTCUT_GROUPS.flatMap((group) => group.entries)
@@ -209,5 +210,23 @@ describe("Chrome's own shortcut strings, on the popup chips", () => {
 
   it('draws the modifiers and leaves the key as a character', () => {
     expect(keycaps(parseChromeShortcut('⌘⇧S'), false).map((cap) => cap.kind)).toEqual(['glyph', 'glyph', 'char'])
+  })
+})
+
+describe('the suggested capture shortcuts', () => {
+  const suggestions = Object.values(manifest.commands).map((command) => command.suggested_key)
+
+  /* Chrome refuses a manifest with more than four. */
+  it('stays within the four suggestions Chrome allows, one per capture mode', () => {
+    expect(Object.keys(manifest.commands)).toEqual(['capture-full-page', 'capture-visible-area', 'capture-selection'])
+    expect(suggestions.length).toBeLessThanOrEqual(4)
+  })
+
+  /* Option with a letter types a character on a Mac when the binding was not granted; 3 to 5 are macOS's screenshots. */
+  it('uses Command and a digit on a Mac, never Option or a key macOS keeps', () => {
+    for (const suggestion of suggestions) {
+      expect(suggestion.mac).toMatch(/^Command\+Shift\+[0-9]$/)
+      expect(suggestion.mac).not.toMatch(/\+[345]$/)
+    }
   })
 })

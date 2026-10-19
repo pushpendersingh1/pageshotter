@@ -40,10 +40,11 @@ const MODE_LABELS: Record<CaptureMode, string> = {
   region: 'Selection',
 }
 
-/** Which manifest command drives which button. Selection has none, so it carries no chip. */
+/** Which manifest command drives which button. */
 const SHORTCUT_CHIPS: ReadonlyArray<{ chipId: string; command: string }> = [
   { chipId: 'shortcut-full', command: 'capture-full-page' },
   { chipId: 'shortcut-visible', command: 'capture-visible-area' },
+  { chipId: 'shortcut-region', command: 'capture-selection' },
 ]
 
 let activeJobId: string | undefined
