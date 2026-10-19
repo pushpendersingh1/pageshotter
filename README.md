@@ -1,39 +1,65 @@
-<p align="center">
-  <a href="https://www.pageshotter.com">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-dark.svg" />
-      <img src=".github/assets/logo.svg" alt="PageShotter" width="296" height="70" />
-    </picture>
-  </a>
-</p>
+<div align="center">
 
-<p align="center">
-  Full-page, visible-area and selection screenshots for Chrome and Firefox, captured and edited
-  entirely on your own computer. Export PNG, JPEG, WebP, or a PDF with searchable text and
-  clickable links.
-</p>
+<a href="https://www.pageshotter.com">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-dark.svg" />
+    <img src=".github/assets/logo.svg" alt="PageShotter" width="296" height="70" />
+  </picture>
+</a>
 
-<p align="center">
-  <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf"><img src="https://img.shields.io/chrome-web-store/v/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20Web%20Store&amp;color=E11900" alt="Chrome Web Store version" /></a>
-  <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf"><img src="https://img.shields.io/chrome-web-store/users/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20users" alt="Chrome Web Store users" /></a>
-  <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf/reviews"><img src="https://img.shields.io/chrome-web-store/rating/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20rating" alt="Chrome Web Store rating" /></a>
-  <a href="https://addons.mozilla.org/firefox/addon/pageshotter/"><img src="https://img.shields.io/amo/v/pageshotter?label=Firefox%20Add-ons&amp;color=E11900" alt="Firefox Add-ons version" /></a>
-  <a href="https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml"><img src="https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml/badge.svg" alt="verify" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/pushpendersingh1/pageshotter" alt="MIT License" /></a>
-</p>
+### Full-page screenshots, taken and kept on your own computer.
 
-<p align="center">
-  <a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf"><strong>Add to Chrome</strong></a> ·
-  <a href="https://addons.mozilla.org/firefox/addon/pageshotter/"><strong>Add to Firefox</strong></a> ·
-  <a href="https://www.pageshotter.com">Website</a> ·
-  <a href="https://www.pageshotter.com/privacy/">Privacy policy</a>
-  <br />
-  <sub>Chrome 120 or later. Firefox 153 or later, on desktop.</sub>
-</p>
+Capture a whole page, the visible area or a selection, then edit it and export PNG, JPEG, WebP, or a
+PDF with searchable text and clickable links. For Chrome and Firefox. No account, nothing uploaded.
 
-<p align="center">
-  <img src=".github/assets/screenshots/full-page.jpg" alt="The PageShotter popup next to a full-page capture of a long article" width="800" />
-</p>
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20Web%20Store&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf) [![Chrome users](https://img.shields.io/chrome-web-store/users/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20users&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf) [![Chrome rating](https://img.shields.io/chrome-web-store/rating/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20rating&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf/reviews) [![Firefox Add-ons](https://img.shields.io/amo/v/pageshotter?label=Firefox%20Add-ons&color=FF7139)](https://addons.mozilla.org/firefox/addon/pageshotter/)<br />
+[![verify](https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml/badge.svg)](https://github.com/pushpendersingh1/pageshotter/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/github/license/pushpendersingh1/pageshotter?color=1B1A17)](LICENSE) [![No account](https://img.shields.io/badge/account-none-1B1A17)](#privacy) [![Nothing uploaded](https://img.shields.io/badge/uploads-none-1B1A17)](#privacy)
+
+<br />
+
+<table>
+<tr>
+<td align="center" width="230">
+<a href="https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf">
+<img src=".github/assets/brands/chrome.svg" alt="" width="40" height="40" /><br />
+<strong>Add to Chrome</strong>
+</a><br />
+<sub>Chrome Web Store · Chrome 120+</sub>
+</td>
+<td align="center" width="230">
+<a href="https://addons.mozilla.org/firefox/addon/pageshotter/">
+<img src=".github/assets/brands/firefox.svg" alt="" width="40" height="40" /><br />
+<strong>Add to Firefox</strong>
+</a><br />
+<sub>Firefox Add-ons · desktop, 153+</sub>
+</td>
+<td align="center" width="230">
+<a href="#build-and-load-it-yourself">
+<img src=".github/assets/brands/edge.svg" alt="" width="40" height="40" /><br />
+<strong>Edge</strong>
+</a><br />
+<sub>Edge Add-ons listing in review</sub>
+</td>
+</tr>
+</table>
+
+[Website](https://www.pageshotter.com) &nbsp;·&nbsp; [Roadmap](https://www.pageshotter.com/roadmap/) &nbsp;·&nbsp; [Report a bug](https://github.com/pushpendersingh1/pageshotter/issues/new?template=bug_report.yml) &nbsp;·&nbsp; [Support](https://www.pageshotter.com/support/) &nbsp;·&nbsp; [Privacy policy](https://www.pageshotter.com/privacy/)
+
+<br />
+
+<img src=".github/assets/screenshots/full-page.jpg" alt="The PageShotter popup next to a full-page capture of a long article" width="820" />
+
+<sub>Shown in Chrome. Firefox has the same capture modes, editor, History and exports.</sub>
+
+</div>
+
+## Your first screenshot
+
+1. **Install** it from your browser's store, then pin PageShotter to the toolbar from the extensions
+   menu.
+2. **Open any page, click the PageShotter icon and choose Full page.** It scrolls to the bottom and
+   stitches the page together while you watch.
+3. **Edit and export.** Mark it up, blur anything private, then save it as an image or PDF, or copy it.
 
 ## What it does
 
@@ -48,9 +74,11 @@
 - **Present.** Wrap a capture in a mock browser window with a background, margin, corners, shadow
   and date stamp.
 - **History.** Reopen and re-export earlier captures, and search them by the words on the page.
-- **Batch capture.** Paste a list of addresses, or pick from the tabs open in a window; each page is
-  captured and saved as its own file, with a report of anything that failed and a Retry for it. Open
-  tabs are captured where they are, as they are, and left open.
+- **Right-click menu** *(next release)*. Full page, visible area or selection from the page's own
+  menu.
+- **Batch capture** *(next release)*. Paste a list of addresses, or pick from the tabs open in a
+  window; each page is captured and saved as its own file, with a report of anything that failed and
+  a Retry for it. Open tabs are captured where they are, as they are, and left open.
 
 <table>
   <tr>
@@ -84,11 +112,26 @@
 ## Privacy
 
 PageShotter makes no network requests. There is no server, account, analytics or remote code, and
-its only required permissions are `activeTab`, `scripting` and `contextMenus` (the right-click menu). `downloads` is optional and requested
-only if you choose to save into a folder. Access to all websites is optional too, and requested only
-when you start a batch capture or list your open tabs for one: the browser lets an extension read
-another tab's address, or screenshot a tab you didn't open it on, only with that access. Everything it keeps is in the extension's own browser
-storage; [`public/welcome.html`](public/welcome.html) lists exactly what is stored and for how long.
+everything it keeps stays in the extension's own browser storage; [`public/welcome.html`](public/welcome.html)
+lists exactly what is stored and for how long.
+
+<details>
+<summary><b>Every permission, and when it is asked for</b></summary>
+
+<br />
+
+| Permission | Asked for | Why |
+| --- | --- | --- |
+| `activeTab` | On install | Lets PageShotter reach the tab you are on, and only after you click its icon, press its shortcut or pick it from the right-click menu. |
+| `scripting` | On install | Runs the scrolling, measuring and selection code in that tab, and undoes every change it makes there. |
+| `contextMenus` | On install *(next release)* | Adds the capture items to the page's right-click menu. |
+| `downloads` | Only when needed | When you choose to save into a folder, or start a batch capture. |
+| Access to all websites | Only when needed *(next release)* | When you start a batch capture or list your open tabs for one: the browser lets an extension read another tab's address, or capture a tab you didn't click it on, only with this access. |
+
+There is no `storage`, `history`, `cookies` or `webRequest` permission, and no standing access to the
+sites you visit.
+
+</details>
 
 ## Build and load it yourself
 
@@ -137,8 +180,9 @@ tests/          Vitest unit tests (plain Node, no DOM) and the fixture corpus
 
 ## Contributing
 
-The most useful report is a public page that captures wrong: [open an issue](../../issues) with
-its address, what you expected and what you got. Questions and ideas go in
+The most useful report is a public page that captures wrong: [report a bug](../../issues/new?template=bug_report.yml)
+with its address, what you expected and what you got. What is planned next is on the
+[roadmap](https://www.pageshotter.com/roadmap/). Questions and ideas go in
 [Discussions](../../discussions). For a pull request, keep it to
 one change, run `npm run verify`, and read [`AGENTS.md`](AGENTS.md) first: a change that adds a
 permission, sends anything off the device or special-cases a website will not be merged. If a change
@@ -149,5 +193,6 @@ To report a security problem, see [`SECURITY.md`](SECURITY.md); please do not op
 ## License
 
 The code is [MIT](LICENSE). The PageShotter name and logo are not covered by that license; see
-[`TRADEMARKS.md`](TRADEMARKS.md). Bundled third-party components and their licenses are listed in
+[`TRADEMARKS.md`](TRADEMARKS.md). The Chrome, Firefox and Edge logos belong to their owners and appear
+here only to show where PageShotter can be installed. Bundled third-party components and their licenses are listed in
 [`public/THIRD_PARTY_NOTICES.txt`](public/THIRD_PARTY_NOTICES.txt).
