@@ -1751,26 +1751,21 @@ async function handleRequest(request: ContentRequest): Promise<ContentResponse> 
         activeSelector?.cancel()
         activeSelector = undefined
         return { ok: true }
-      case 'PREPARE_CAPTURE':
+      case 'PREPARE_CAPTURE': {
         activeSession?.cleanup()
-        activeSession = new CaptureSession(request.jobId)
-        return {
-          ok: true,
-          metrics: await activeSession.prepare(request.sectionWaitMs, request.imageWaitMs),
-          pageUrl: location.href,
-          degradations: activeSession.reportDegradations(),
-        }
-      case 'CAPTURE_POSITION':
-        if (!activeSession) throw new Error('Capture session is not prepared.')
-        return {
-          ok: true,
-          metrics: await activeSession.position(
-            request.scrollY,
-            request.seenOverlayIds,
-            request.depthLimit,
-          ),
-          degradations: activeSession.reportDegradations(),
-        }
+        const session = new CaptureSession(request.jobId)
+        activeSession = session
+        const metrics = await session.prepare(request.sectionWaitMs, request.imageWaitMs)
+        assertStillCapturing(session)
+        return { ok: true, metrics, pageUrl: location.href, degradations: session.reportDegradations() }
+      }
+      case 'CAPTURE_POSITION': {
+        const session = activeSession
+        if (!session) throw new Error('Capture session is not prepared.')
+        const metrics = await session.position(request.scrollY, request.seenOverlayIds, request.depthLimit)
+        assertStillCapturing(session)
+        return { ok: true, metrics, degradations: session.reportDegradations() }
+      }
       case 'HEARTBEAT_CAPTURE':
         if (!activeSession) throw new Error('Capture session is not prepared.')
         activeSession.heartbeat()
@@ -1788,11 +1783,49 @@ async function handleRequest(request: ContentRequest): Promise<ContentResponse> 
     return {
       ok: false,
       error: {
-        code: 'PAGE_PREPARATION_FAILED',
+        code: error instanceof SessionEndedError ? error.code : 'PAGE_PREPARATION_FAILED',
         message: error instanceof Error ? error.message : 'The page could not be prepared for capture.',
       },
     }
   }
+}
+
+/** The session was torn down while a request was still working on it, and why. */
+class SessionEndedError extends Error {
+  constructor(
+    readonly code: 'PAGE_HIDDEN' | 'PAGE_TIMED_OUT',
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+/**
+ * Whether the session a request started with is still the one capturing, after its awaits.
+ *
+ * Every frame wait in a session is `requestAnimationFrame`, and a browser does not run those in a
+ * page it is not drawing -- a minimised window, or one covered by another. A single capture never
+ * meets this, because the page is the one the user is looking at; a batch, whose window can end up
+ * behind another, does. The wait then stalls until the watchdog restores the page and clears the
+ * session, and the request carries on afterwards. Reading the cleared session here was a raw
+ * `TypeError`; the cause is now said instead.
+ *
+ * Restoring once more is not redundant: the steps that ran after the watchdog fired had nothing
+ * left to record their changes against except this session's ledger.
+ */
+function assertStillCapturing(session: CaptureSession): void {
+  if (activeSession === session) return
+  session.cleanup()
+  if (document.visibilityState === 'hidden') {
+    throw new SessionEndedError(
+      'PAGE_HIDDEN',
+      'The page stopped drawing because its window was covered or minimised, so the capture stopped and the page was restored. Keep the window in view while it captures.',
+    )
+  }
+  throw new SessionEndedError(
+    'PAGE_TIMED_OUT',
+    'The page took too long to get ready for capture, so the capture stopped and the page was restored. Try again.',
+  )
 }
 
 /**
