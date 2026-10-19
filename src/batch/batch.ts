@@ -18,17 +18,29 @@ import {
   batchFilename,
   batchFolder,
   batchFolderName,
+  batchSource,
   getBatchOptions,
   parseBatchUrls,
   setBatchOptions,
   siteCount,
+  tabCapturable,
   type BatchMode,
   type BatchOptions,
+  type BatchSource,
 } from './batch-plan'
 
 void applyStoredTheme(document.documentElement)
 wireThemeButton(requiredElement<HTMLButtonElement>('theme'), document.documentElement)
 
+const sourceGroup = requiredElement<HTMLElement>('batch-source')
+const urlsPanel = requiredElement<HTMLElement>('urls-panel')
+const tabsPanel = requiredElement<HTMLElement>('tabs-panel')
+const tabList = requiredElement<HTMLUListElement>('tab-list')
+const tabSummary = requiredElement<HTMLParagraphElement>('tab-summary')
+const tabsAccessButton = requiredElement<HTMLButtonElement>('tabs-access')
+const tabsAllButton = requiredElement<HTMLButtonElement>('tabs-all')
+const tabsNoneButton = requiredElement<HTMLButtonElement>('tabs-none')
+const startDialogHow = requiredElement<HTMLParagraphElement>('start-dialog-how')
 const urlsInput = requiredElement<HTMLTextAreaElement>('urls')
 const urlSummary = requiredElement<HTMLParagraphElement>('url-summary')
 const modeGroup = requiredElement<HTMLElement>('batch-mode')
@@ -65,6 +77,8 @@ type RowState = 'waiting' | 'loading' | 'rendering' | 'capturing' | 'saving' | '
 
 interface Row {
   url: string
+  /** Set for a tab that was already open: it is captured where it is, and never closed. */
+  tabId?: number
   position: number
   state: RowState
   element: HTMLLIElement
@@ -87,6 +101,9 @@ class BatchAbort extends Error {}
 /** Stop was pressed: whatever was waiting gives up, and the page in hand is not saved. */
 class Stopped extends Error {}
 
+/** The tab a page was in went away while it waited its turn or loaded. */
+class TabClosed extends Error {}
+
 /** A capture that failed, with the worker's code kept. */
 class CaptureFailure extends Error {
   constructor(
@@ -102,11 +119,18 @@ let currentRun: Run | undefined
 let running = false
 let stopRequested = false
 let settingsFormat: ExportFormat = 'png'
+let source: BatchSource = batchSource(location.search)
 /** The tab the current page is loading or being captured in, and its capture once started. */
 let captureTabId: number | undefined
+/** The tab this page opened for an address, which it closes again. Never an open tab it was given. */
+let openedTabId: number | undefined
 let currentJobId: string | undefined
 /** What the start dialog will run once confirmed: a fresh list, or rows being retried. */
 let pendingRows: Row[] | 'new' = 'new'
+/** Every tab listed, in window order, and whether each one is ticked -- kept across redraws. */
+let tabEntries: TabEntry[] = []
+const tabTicks = new Map<number, boolean>()
+let tabRefresh: number | undefined
 
 /*
  * Recorded per tab from the moment the page opens, so a tab created later can never have reported
@@ -125,12 +149,17 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
   }
   tabLoads.set(tabId, entry)
   for (const wake of loadWaiters) wake()
+  if (info.title !== undefined || info.url !== undefined || info.discarded !== undefined) scheduleTabRefresh()
 })
 chrome.tabs.onRemoved.addListener((tabId) => {
   tabLoads.delete(tabId)
   closedTabs.add(tabId)
   for (const wake of loadWaiters) wake()
+  scheduleTabRefresh()
 })
+for (const event of [chrome.tabs.onCreated, chrome.tabs.onMoved, chrome.tabs.onAttached, chrome.tabs.onDetached]) {
+  ;(event as chrome.events.Event<() => void>).addListener(scheduleTabRefresh)
+}
 
 const settledJobs = new Set<string>()
 const settleWaiters = new Set<() => void>()
@@ -163,9 +192,19 @@ async function initialise(): Promise<void> {
     })
   }
 
+  checkRadio(sourceGroup, source)
+  sourceGroup.addEventListener('change', () => {
+    source = checkedValue(sourceGroup) === 'tabs' ? 'tabs' : 'urls'
+    // Kept in the address, so a reload comes back to the same list.
+    history.replaceState(null, '', source === 'tabs' ? '?source=tabs' : location.pathname)
+    drawSource()
+  })
   urlsInput.addEventListener('input', drawSummary)
+  tabsAccessButton.addEventListener('click', requestAccessForTabs)
+  tabsAllButton.addEventListener('click', () => tickAllTabs(true))
+  tabsNoneButton.addEventListener('click', () => tickAllTabs(false))
   startButton.addEventListener('click', () => {
-    if (running || parseBatchUrls(urlsInput.value).urls.length === 0) return
+    if (running || pageCount() === 0) return
     askToStart('new')
   })
   stopButton.addEventListener('click', stop)
@@ -186,11 +225,31 @@ async function initialise(): Promise<void> {
     if (running) event.preventDefault()
   })
 
-  drawSummary()
+  drawSource()
   drawSubfolderNote()
   await drawAccessNote()
-  chrome.permissions.onAdded.addListener(() => void drawAccessNote())
-  chrome.permissions.onRemoved.addListener(() => void drawAccessNote())
+  for (const event of [chrome.permissions.onAdded, chrome.permissions.onRemoved]) {
+    event.addListener(() => {
+      void drawAccessNote()
+      scheduleTabRefresh()
+    })
+  }
+}
+
+function drawSource(): void {
+  urlsPanel.hidden = source !== 'urls'
+  tabsPanel.hidden = source !== 'tabs'
+  startDialogHow.textContent =
+    source === 'tabs'
+      ? "PageShotter switches to each tab you picked, in turn, and captures it while it is on screen. Please don't switch tabs or windows until the batch finishes."
+      : "PageShotter opens each page in a new tab beside this one and captures it while it is on screen. Please don't switch tabs or windows until the batch finishes."
+  drawSummary()
+  scheduleTabRefresh()
+}
+
+/** How many pages Start would capture from the source on screen. */
+function pageCount(): number {
+  return source === 'urls' ? parseBatchUrls(urlsInput.value).urls.length : pickedTabs().length
 }
 
 function drawOptions(options: BatchOptions): void {
@@ -230,7 +289,134 @@ function drawSummary(): void {
     parts.push(`Skipped: ${shown.join(', ')}${more}.`)
   }
   urlSummary.textContent = parts.join(' ')
-  startButton.disabled = running || urls.length === 0
+  startButton.disabled = running || pageCount() === 0
+}
+
+interface TabEntry {
+  tab: chrome.tabs.Tab
+  element: HTMLLIElement
+  checkbox: HTMLInputElement
+  title: HTMLSpanElement
+  address: HTMLSpanElement
+}
+
+/**
+ * Tabs open, close, move and change title all the time; the list follows them, a moment later, so a
+ * page loading in the background redraws it once rather than on every step of its load.
+ */
+function scheduleTabRefresh(): void {
+  if (source !== 'tabs' || running || tabRefresh !== undefined) return
+  tabRefresh = window.setTimeout(() => {
+    tabRefresh = undefined
+    void refreshTabs()
+  }, 150)
+}
+
+/**
+ * A tab's address and title are only readable with access to its site, so without the access batch
+ * capture already asks for there is nothing to list -- and asking here, on a button, is what lets
+ * someone see their tabs before deciding.
+ */
+async function refreshTabs(): Promise<void> {
+  if (source !== 'tabs' || running) return
+  const granted = await chrome.permissions.contains(BATCH_PERMISSIONS).catch(() => false)
+  const own = await chrome.tabs.getCurrent().catch(() => undefined)
+  tabsAccessButton.hidden = granted
+  tabsAllButton.hidden = !granted
+  tabsNoneButton.hidden = !granted
+  if (!granted || own === undefined) {
+    tabEntries = []
+    tabList.replaceChildren()
+    tabList.hidden = true
+    tabSummary.textContent = granted
+      ? 'This page could not find its own window.'
+      : `To list this window's tabs, PageShotter needs the access to all websites that batch capture uses. Nothing is uploaded.`
+    drawSummary()
+    return
+  }
+  const tabs = await chrome.tabs.query({ windowId: own.windowId }).catch(() => [])
+  const previous = new Map(tabEntries.map((entry) => [entry.tab.id, entry]))
+  tabEntries = tabs
+    .filter((tab) => tab.id !== undefined && tab.id !== own.id)
+    .map((tab) => drawTabEntry(tab, previous.get(tab.id)))
+  const elements = tabEntries.map((entry) => entry.element)
+  // Only rebuilt when the tabs themselves changed, so a title update does not steal focus.
+  const children = [...tabList.children]
+  if (children.length !== elements.length || children.some((child, index) => child !== elements[index])) {
+    tabList.replaceChildren(...elements)
+  }
+  tabList.hidden = tabEntries.length === 0
+  drawTabSummary()
+}
+
+function drawTabEntry(tab: chrome.tabs.Tab, entry: TabEntry | undefined): TabEntry {
+  const id = tab.id as number
+  if (entry === undefined) {
+    const element = document.createElement('li')
+    const label = document.createElement('label')
+    const checkbox = document.createElement('input')
+    checkbox.type = 'checkbox'
+    const page = document.createElement('span')
+    page.className = 'page'
+    const title = document.createElement('span')
+    title.className = 'address'
+    const address = document.createElement('span')
+    address.className = 'state'
+    page.append(title, address)
+    label.append(checkbox, page)
+    element.append(label)
+    checkbox.addEventListener('change', () => {
+      tabTicks.set(id, checkbox.checked)
+      drawTabSummary()
+    })
+    entry = { tab, element, checkbox, title, address }
+  }
+  entry.tab = tab
+  const capturable = tabCapturable(tab.url)
+  // Without its address the tab is one PageShotter has no access to: a browser or extension page.
+  entry.title.textContent = tab.title || tab.url || "A page PageShotter can't read"
+  entry.address.textContent = capturable ? (tab.url as string) : "Can't be captured"
+  entry.title.title = tab.url ?? ''
+  entry.checkbox.disabled = !capturable
+  entry.checkbox.checked = capturable && (tabTicks.get(id) ?? true)
+  return entry
+}
+
+function pickedTabs(): TabEntry[] {
+  return tabEntries.filter((entry) => entry.checkbox.checked && !entry.checkbox.disabled)
+}
+
+function tickAllTabs(on: boolean): void {
+  for (const entry of tabEntries) {
+    if (entry.checkbox.disabled) continue
+    entry.checkbox.checked = on
+    tabTicks.set(entry.tab.id as number, on)
+  }
+  drawTabSummary()
+}
+
+function drawTabSummary(): void {
+  const offered = tabEntries.filter((entry) => !entry.checkbox.disabled).length
+  const refused = tabEntries.length - offered
+  const parts = [
+    tabEntries.length === 0
+      ? 'There are no other tabs in this window.'
+      : `${pickedTabs().length} of ${plural(offered, 'tab')} picked.`,
+  ]
+  if (refused > 0) parts.push(`${plural(refused, 'tab')} can't be captured.`)
+  tabSummary.textContent = parts.join(' ')
+  drawSummary()
+}
+
+/** Synchronous in the click, for the same reason as Start's request: Firefox allows it nowhere else. */
+function requestAccessForTabs(): void {
+  void chrome.permissions
+    .request(BATCH_PERMISSIONS)
+    .catch(() => false)
+    .then(() => {
+      void drawAccessNote()
+      void refreshTabs()
+    })
 }
 
 function drawSubfolderNote(): void {
@@ -274,10 +460,13 @@ function onConfirmStart(): void {
   if (running) return
   let selected: Row[]
   if (pendingRows === 'new') {
-    const { urls } = parseBatchUrls(urlsInput.value)
-    if (urls.length === 0) return
+    const pages =
+      source === 'urls'
+        ? parseBatchUrls(urlsInput.value).urls.map((url) => ({ url, title: url, tabId: undefined }))
+        : pickedTabs().map(({ tab }) => ({ url: tab.url as string, title: tab.title || (tab.url as string), tabId: tab.id }))
+    if (pages.length === 0) return
     currentRun = undefined
-    rows = urls.map((url, index) => createRow(url, index + 1))
+    rows = pages.map((page, index) => createRow(page.url, page.title, index + 1, page.tabId))
     report.replaceChildren(...rows.map((row) => row.element))
     reportGroup.hidden = false
     selected = rows
@@ -384,7 +573,8 @@ async function runBatch(selected: Row[]): Promise<void> {
   } catch (error) {
     abortMessage = error instanceof Error ? error.message : String(error)
   } finally {
-    if (captureTabId !== undefined) await chrome.tabs.remove(captureTabId).catch(() => undefined)
+    if (openedTabId !== undefined) await chrome.tabs.remove(openedTabId).catch(() => undefined)
+    openedTabId = undefined
     captureTabId = undefined
     currentJobId = undefined
     for (const row of selected) {
@@ -395,6 +585,7 @@ async function runBatch(selected: Row[]): Promise<void> {
     document.title = PAGE_TITLE
     backButton.hidden = true
     if (own?.id !== undefined) await chrome.tabs.update(own.id, { active: true }).catch(() => undefined)
+    scheduleTabRefresh()
   }
 
   if (run.options.showFolder && lastDownloadId !== undefined) {
@@ -411,33 +602,22 @@ async function runBatch(selected: Row[]): Promise<void> {
 }
 
 /**
- * One page, start to finish, in a fresh tab beside this one; the previous page's tab is closed.
- *
- * A fresh tab rather than navigating one tab through the list, because it makes a page that never
- * answered unmistakable: the tab is still on its blank first document, which refuses the content
- * script, so the page is reported as not loaded. Navigating a single tab would still be showing the
- * *previous* page, and would save it under this page's number.
+ * One page, start to finish: an address in a fresh tab beside this one, or an open tab where it is.
  *
  * Returns the download's id, so the folder can be shown at the end.
  */
 async function captureRow(row: Row, run: Run, own: chrome.tabs.Tab): Promise<number | undefined> {
-  setRowState(row, 'loading', 'Loading')
-  const previousTabId = captureTabId
-  const tab = await chrome.tabs.create({ windowId: own.windowId, index: own.index + 1, url: row.url, active: true })
-  const tabId = tab.id as number
-  captureTabId = tabId
-  if (previousTabId !== undefined) await chrome.tabs.remove(previousTabId).catch(() => undefined)
-
+  setRowState(row, 'loading', row.tabId === undefined ? 'Loading' : 'Switching to it')
   try {
-    const loaded = await waitForLoad(tabId, run.options.loadTimeoutMs)
+    const { tabId, loaded } = row.tabId === undefined ? await openPage(row, run, own) : await showTab(row.tabId, run)
     if (run.options.renderWaitMs > 0) {
       setRowState(row, 'rendering', 'Letting it render')
       await sleepUnlessStopped(run.options.renderWaitMs)
     }
-    if (closedTabs.has(tabId)) throw new BatchAbort('The tab being captured was closed, so the batch stopped.')
+    if (closedTabs.has(tabId)) throw new TabClosed()
 
     setRowState(row, 'capturing', 'Capturing')
-    const job = await captureInWorker(tabId, run.options.mode)
+    const job = await captureInWorker(tabId, run.options.mode, row.tabId !== undefined)
     // A capture stopped partway is kept by the worker as a partial, which is right for a single
     // capture and wrong here: Stop in a batch means "not this one either".
     if (stopRequested) {
@@ -449,9 +629,16 @@ async function captureRow(row: Row, run: Run, own: chrome.tabs.Tab): Promise<num
     setRowState(row, 'saved', savedDescription(job, loaded))
     return downloadId
   } catch (error) {
-    if (error instanceof BatchAbort) {
-      setRowState(row, 'failed', error.message)
-      throw error
+    // Closing the tab a listed address was opened in is how someone stops a batch by hand; closing
+    // one of their own tabs is only a change of mind about that tab.
+    if (error instanceof TabClosed && row.tabId !== undefined) {
+      setRowState(row, 'failed', 'The tab was closed, so it was not captured.')
+      return undefined
+    }
+    if (error instanceof TabClosed || error instanceof BatchAbort) {
+      const abort = error instanceof BatchAbort ? error : new BatchAbort('The tab being captured was closed, so the batch stopped.')
+      setRowState(row, 'failed', abort.message)
+      throw abort
     }
     if (error instanceof Stopped || (stopRequested && error instanceof CaptureFailure)) {
       setRowState(row, 'skipped', 'Not captured: stopped')
@@ -464,32 +651,69 @@ async function captureRow(row: Row, run: Run, own: chrome.tabs.Tab): Promise<num
   }
 }
 
-/** `true` when the page said it had loaded, `false` when the limit came first. *//** `true` when the page said it had loaded, `false` when the limit came first. */
-function waitForLoad(tabId: number, timeoutMs: number): Promise<boolean> {
+/**
+ * An address, in a fresh tab beside this one; the previous page's tab is closed.
+ *
+ * A fresh tab rather than navigating one tab through the list, because it makes a page that never
+ * answered unmistakable: the tab is still on its blank first document, which refuses the content
+ * script, so the page is reported as not loaded. Navigating a single tab would still be showing the
+ * *previous* page, and would save it under this page's number.
+ */
+async function openPage(row: Row, run: Run, own: chrome.tabs.Tab): Promise<{ tabId: number; loaded: boolean }> {
+  const previousTabId = openedTabId
+  const tab = await chrome.tabs.create({ windowId: own.windowId, index: own.index + 1, url: row.url, active: true })
+  const tabId = tab.id as number
+  captureTabId = openedTabId = tabId
+  if (previousTabId !== undefined) await chrome.tabs.remove(previousTabId).catch(() => undefined)
+  const loaded = await waitForLoad(tabId, run.options.loadTimeoutMs, () => tabLoads.get(tabId)?.complete === true)
+  return { tabId, loaded }
+}
+
+/**
+ * An open tab, brought to the front as it is. One the browser put to sleep, or one still loading,
+ * loads first under the same limit as an address; one already loaded is captured straight away.
+ *
+ * Asked of the tab rather than learnt from its events: it may have finished loading long before
+ * this page was there to hear it.
+ */
+async function showTab(tabId: number, run: Run): Promise<{ tabId: number; loaded: boolean }> {
+  const tab = await chrome.tabs.get(tabId).catch(() => undefined)
+  if (tab === undefined || closedTabs.has(tabId)) throw new TabClosed()
+  // The tab may have moved on to a page that refuses extensions since it was listed.
+  if (!tabCapturable(tab.url)) throw new CaptureFailure('RESTRICTED_PAGE', failureText('RESTRICTED_PAGE', '', true))
+  captureTabId = tabId
+  await chrome.tabs.update(tabId, { active: true })
+  const ready = (): Promise<boolean> =>
+    chrome.tabs.get(tabId).then(
+      (current) => current.status === 'complete' && !current.discarded,
+      () => false,
+    )
+  const loaded = await waitForLoad(tabId, run.options.loadTimeoutMs, ready)
+  return { tabId, loaded }
+}
+
+/** `true` when the page said it had loaded, `false` when the limit came first. */
+function waitForLoad(tabId: number, timeoutMs: number, ready: () => boolean | Promise<boolean>): Promise<boolean> {
   return new Promise((resolve, reject) => {
     let timer: number | undefined
-    const check = (): void => {
-      if (stopRequested) {
-        finish()
-        reject(new Stopped())
-      } else if (closedTabs.has(tabId)) {
-        finish()
-        reject(new BatchAbort('The tab being captured was closed, so the batch stopped.'))
-      } else if (tabLoads.get(tabId)?.complete) {
-        finish()
-        resolve(true)
-      }
-    }
-    const finish = (): void => {
+    let done = false
+    const finish = (settle: () => void): void => {
+      if (done) return
+      done = true
       loadWaiters.delete(check)
       if (timer !== undefined) window.clearTimeout(timer)
+      settle()
     }
-    if (timeoutMs > 0) {
-      timer = window.setTimeout(() => {
-        finish()
-        resolve(false)
-      }, timeoutMs)
+    function check(): void {
+      if (stopRequested) finish(() => reject(new Stopped()))
+      else if (closedTabs.has(tabId)) finish(() => reject(new TabClosed()))
+      else {
+        void Promise.resolve(ready()).then((isReady) => {
+          if (isReady) finish(() => resolve(true))
+        })
+      }
     }
+    if (timeoutMs > 0) timer = window.setTimeout(() => finish(() => resolve(false)), timeoutMs)
     loadWaiters.add(check)
     check()
   })
@@ -512,10 +736,10 @@ function sleepUnlessStopped(ms: number): Promise<void> {
   })
 }
 
-async function captureInWorker(tabId: number, mode: BatchMode): Promise<CaptureJob> {
+async function captureInWorker(tabId: number, mode: BatchMode, openTab: boolean): Promise<CaptureJob> {
   const request: RuntimeRequest = { type: 'START_BATCH_CAPTURE', tabId, mode }
   const started = (await chrome.runtime.sendMessage(request)) as RuntimeResponse
-  if (!started.ok) throw new CaptureFailure(started.error.code, failureText(started.error.code, started.error.message))
+  if (!started.ok) throw new CaptureFailure(started.error.code, failureText(started.error.code, started.error.message, openTab))
   const jobId = started.jobId as string
   currentJobId = jobId
   // Stop may have been pressed while the request was in flight, before there was a job to cancel.
@@ -523,12 +747,12 @@ async function captureInWorker(tabId: number, mode: BatchMode): Promise<CaptureJ
   for (;;) {
     await settledOrBackstop(jobId)
     const response = (await chrome.runtime.sendMessage({ type: 'GET_JOB', jobId } satisfies RuntimeRequest)) as RuntimeResponse
-    if (!response.ok) throw new CaptureFailure(response.error.code, failureText(response.error.code, response.error.message))
+    if (!response.ok) throw new CaptureFailure(response.error.code, failureText(response.error.code, response.error.message, openTab))
     const job = response.job
     if (job === undefined) throw new Error('The capture disappeared before it finished.')
     if (job.status === 'capturing') continue
     if (job.status === 'complete') return job
-    throw new CaptureFailure(job.error?.code, failureText(job.error?.code, job.error?.message ?? 'The capture did not finish.'))
+    throw new CaptureFailure(job.error?.code, failureText(job.error?.code, job.error?.message ?? 'The capture did not finish.', openTab))
   }
 }
 
@@ -622,14 +846,17 @@ function savedDescription(job: CaptureJob, loaded: boolean): string {
  * the browser's own error page is one extensions may not touch. Saying only the first would send
  * someone looking for a setting when the address is what is wrong.
  */
-function failureText(code: string | undefined, message: string): string {
+function failureText(code: string | undefined, message: string, openTab: boolean): string {
   if (code === 'RESTRICTED_PAGE') {
-    return `The page didn't load, or ${BROWSER.name} doesn't let extensions capture it. Check the address and retry.`
+    // An open tab was never loaded by the batch, so the address is not the thing to check.
+    return openTab
+      ? `${BROWSER.name} doesn't let extensions capture this page. Its own pages and error pages are among them.`
+      : `The page didn't load, or ${BROWSER.name} doesn't let extensions capture it. Check the address and retry.`
   }
   return message
 }
 
-function createRow(url: string, position: number): Row {
+function createRow(url: string, title: string, position: number, tabId?: number): Row {
   const element = document.createElement('li')
   const number = document.createElement('span')
   number.className = 'position'
@@ -638,7 +865,7 @@ function createRow(url: string, position: number): Row {
   page.className = 'page'
   const address = document.createElement('span')
   address.className = 'address'
-  address.textContent = url
+  address.textContent = title
   address.title = url
   const stateText = document.createElement('span')
   stateText.className = 'state'
@@ -649,7 +876,7 @@ function createRow(url: string, position: number): Row {
   retry.textContent = 'Retry'
   retry.hidden = true
   element.append(number, page, retry)
-  const row: Row = { url, position, state: 'waiting', element, stateText, retry }
+  const row: Row = { url, tabId, position, state: 'waiting', element, stateText, retry }
   retry.addEventListener('click', () => {
     if (!running) askToStart([row])
   })
@@ -667,6 +894,9 @@ function setRowState(row: Row, state: RowState, text: string): void {
 
 function setRunning(on: boolean): void {
   urlsInput.disabled = on
+  for (const entry of tabEntries) entry.checkbox.disabled = on || !tabCapturable(entry.tab.url)
+  tabsAllButton.disabled = on
+  tabsNoneButton.disabled = on
   for (const control of formControls()) control.disabled = on
   startButton.hidden = on
   stopButton.hidden = !on
@@ -678,6 +908,7 @@ function setRunning(on: boolean): void {
 
 function formControls(): (HTMLInputElement | HTMLSelectElement)[] {
   return [
+    ...sourceGroup.querySelectorAll('input'),
     ...modeGroup.querySelectorAll('input'),
     ...formatGroup.querySelectorAll('input'),
     loadTimeoutSelect,

@@ -2,7 +2,8 @@ import { getSetting, putSetting } from '../shared/capture-db'
 import { EXPORT_FORMATS, type ExportFormat } from '../result/export-options'
 
 /*
- * Batch capture: a list of URLs, each opened, captured and saved in turn.
+ * Batch capture: a list of URLs, each opened, captured and saved in turn -- or the tabs already open
+ * in a window, each captured where it is.
  *
  * Everything here is pure except the two storage calls at the bottom, so the rules a batch lives by
  * -- which lines are URLs, what a file is called, where it goes -- can be proved in Node.
@@ -61,6 +62,24 @@ export function parseBatchUrls(text: string): ParsedBatch {
     urls.push(url.href)
   }
   return { urls, rejected }
+}
+
+/** Where a batch's pages come from: addresses typed in, or the tabs already open in this window. */
+export type BatchSource = 'urls' | 'tabs'
+
+/** The popup's "All tabs" opens the page with `?source=tabs`; anything else is the address list. */
+export function batchSource(search: string): BatchSource {
+  return new URLSearchParams(search).get('source') === 'tabs' ? 'tabs' : 'urls'
+}
+
+/**
+ * Whether an open tab is worth offering. The browser's own pages, other extensions' pages and the
+ * store refuse extensions outright; a tab whose address PageShotter cannot even read is one of them.
+ * A local file is offered: it can be captured once file access is allowed for the extension, and
+ * the capture says so when it is not.
+ */
+export function tabCapturable(url: string | undefined): boolean {
+  return url !== undefined && /^(https?|file):/i.test(url)
 }
 
 /** How many distinct sites a list touches, for the summary under the box. */
