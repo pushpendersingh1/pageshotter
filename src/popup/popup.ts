@@ -66,6 +66,10 @@ requiredElement<HTMLButtonElement>('capture-region').addEventListener('click', (
 requiredElement<HTMLButtonElement>('cancel').addEventListener('click', () => void cancel())
 requiredElement<HTMLButtonElement>('retry').addEventListener('click', () => void start(lastMode))
 viewAll.addEventListener('click', () => openHistory())
+requiredElement<HTMLButtonElement>('open-batch').addEventListener('click', () => {
+  void chrome.tabs.create({ url: chrome.runtime.getURL('batch.html') })
+  window.close()
+})
 requiredElement<HTMLButtonElement>('open-settings').addEventListener('click', () => {
   void chrome.runtime.openOptionsPage()
   window.close()

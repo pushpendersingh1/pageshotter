@@ -63,6 +63,7 @@ import {
 } from '../result/export-preferences'
 import { PDF_PAPERS, type PdfPageSizeName } from '../result/pdf-layout'
 import { commitFolderDraft } from './download-folder-setting'
+import { BATCH_PERMISSIONS } from '../batch/batch-plan'
 
 // Chrome follows the theme; the preference is read by every page and can be changed from any of
 // them, so the button behaves identically here, in the popup, and on the result page.
@@ -97,6 +98,9 @@ const folderStatus = requiredElement<HTMLParagraphElement>('folder-status')
 const autoDownload = requiredElement<HTMLInputElement>('auto-download')
 const autoDownloadCaution = requiredElement<HTMLParagraphElement>('auto-download-caution')
 const contextMenuSwitch = requiredElement<HTMLInputElement>('context-menu')
+const siteAccessState = requiredElement<HTMLSpanElement>('site-access-state')
+const siteAccessNote = requiredElement<HTMLParagraphElement>('site-access-note')
+const siteAccessAction = requiredElement<HTMLButtonElement>('site-access-action')
 const exportFormatGroup = requiredElement<HTMLElement>('export-format')
 const exportQualitySelect = requiredElement<HTMLSelectElement>('export-quality')
 const exportQualityCaution = requiredElement<HTMLParagraphElement>('export-quality-caution')
@@ -135,9 +139,23 @@ async function initialise(): Promise<void> {
    * listeners the badge would say whatever it said when the tab was opened, which is worse than not
    * showing a state at all.
    */
-  chrome.permissions.onAdded.addListener(() => void refreshPermission())
+  chrome.permissions.onAdded.addListener(() => {
+    void refreshPermission()
+    void refreshSiteAccess()
+  })
   chrome.permissions.onRemoved.addListener((removed) => {
     if (removed.permissions?.includes('downloads')) void clearFolderAfterRevocation(Date.now())
+    void refreshSiteAccess()
+  })
+  await refreshSiteAccess()
+  siteAccessAction.addEventListener('click', () => {
+    void chrome.permissions
+      .remove({ origins: BATCH_PERMISSIONS.origins })
+      .catch(() => false)
+      .then((removed) => {
+        if (!removed) showSettingsAlert(`${BROWSER.name} did not remove the access. You can remove it from the extensions page.`, true)
+        return refreshSiteAccess()
+      })
   })
 
   autoDownload.checked = await getAutoDownload()
@@ -555,6 +573,20 @@ async function refreshPermission(): Promise<void> {
     : `Set folder asks ${BROWSER.name} for access. The folder is not saved unless access is granted.`
   drawAutoDownloadCaution()
   refreshFolderNotes()
+}
+
+/**
+ * The one optional grant only batch capture uses. Asked rather than remembered, for the same reason
+ * as the downloads permission above: it can change from the browser's own extensions page.
+ */
+async function refreshSiteAccess(): Promise<void> {
+  const granted = await chrome.permissions.contains({ origins: BATCH_PERMISSIONS.origins }).catch(() => false)
+  siteAccessState.dataset.state = granted ? 'granted' : 'not-granted'
+  siteAccessState.textContent = granted ? 'Granted' : 'Not granted'
+  siteAccessAction.hidden = !granted
+  siteAccessNote.textContent = granted
+    ? 'Used only by batch capture, to take screenshots of the pages in your list. Remove it and the next batch asks again; capturing the page you are on never needs it.'
+    : 'Batch capture asks for this when you start a batch. Capturing the page you are on never needs it.'
 }
 
 async function commitFolder(): Promise<void> {

@@ -24,6 +24,7 @@
       </svg>
       <nav class="nav" aria-label="Sections">
         <a class="navitem" href="history.html"><svg class="icon" data-icon="clock" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>History</a>
+        <a class="navitem" href="batch.html"><svg class="icon" data-icon="list-details" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Batch capture</a>
         <a class="navitem" href="settings.html" aria-current="page"><svg class="icon" data-icon="adjustments-horizontal" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Settings</a>
       </nav>
       <div class="side-foot">
@@ -97,6 +98,16 @@
               <p class="note">Full page, visible part or a region, from any page's right-click menu. On by default.</p>
             </div>
             <input id="context-menu" class="switch" type="checkbox" role="switch" />
+          </div>
+          <div class="field">
+            <div class="field-text">
+              <span class="row-label">
+                Access to all websites
+                <span class="perm-state" id="site-access-state" data-state="unknown">Checking</span>
+              </span>
+              <p class="note" id="site-access-note"></p>
+            </div>
+            <button id="site-access-action" class="btn" type="button" hidden>Remove access</button>
           </div>
         </section>
 

@@ -28,6 +28,7 @@ describe('manifestFor', () => {
     expect(firefox.permissions).toEqual(manifest.permissions)
     expect(firefox.optional_permissions).toEqual(manifest.optional_permissions)
     expect(firefox.host_permissions).toEqual(manifest.host_permissions)
+    expect(firefox.optional_host_permissions).toEqual(manifest.optional_host_permissions)
     expect(manifest.minimum_chrome_version).toBe('120')
   })
 })

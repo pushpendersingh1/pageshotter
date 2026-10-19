@@ -74,6 +74,23 @@ chrome.permissions.onRemoved.addListener((removed) => {
   }
 })
 
+/*
+ * The batch page owns a capture window, and that page can be closed at any moment -- mid-page, with
+ * no chance to tidy up. It reports the window over this port, so the window goes with it instead of
+ * being left open on a list nobody is watching. On a normal finish the page closes the window
+ * itself first, and removing it a second time here fails harmlessly.
+ */
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'batch' || port.sender?.url?.split(/[?#]/)[0] !== chrome.runtime.getURL('batch.html')) return
+  let windowId: number | undefined
+  port.onMessage.addListener((message: { windowId?: unknown }) => {
+    if (typeof message.windowId === 'number') windowId = message.windowId
+  })
+  port.onDisconnect.addListener(() => {
+    if (windowId !== undefined) void chrome.windows.remove(windowId).catch(() => undefined)
+  })
+})
+
 chrome.runtime.onMessage.addListener(
   (request: RuntimeRequest, sender, sendResponse: (response: RuntimeResponse) => void) => {
     void handleRuntimeRequest(request, sender).then(sendResponse)
@@ -257,6 +274,16 @@ async function handleRuntimeRequest(
         const job = await createCapture(request.mode)
         return { ok: true, jobId: job.id }
       }
+      case 'START_BATCH_CAPTURE': {
+        // Only the batch page may start one. A batch capture opens no result page and has no
+        // visible-area fallback, so it is not a shortcut any other surface should be able to take.
+        if (sender?.url?.split(/[?#]/)[0] !== chrome.runtime.getURL('batch.html')) {
+          throw new PageShotterError('NOT_ALLOWED', 'Batch capture can only be started from the batch page.')
+        }
+        const tab = await chrome.tabs.get(request.tabId)
+        const job = await createCapture(request.mode, tab, true)
+        return { ok: true, jobId: job.id }
+      }
       case 'CANCEL_CAPTURE': {
         cancelledJobs.add(request.jobId)
         const job = await getJob(request.jobId)
@@ -289,7 +316,12 @@ async function handleRuntimeRequest(
   }
 }
 
-async function createCapture(mode: CaptureMode, providedTab?: chrome.tabs.Tab): Promise<CaptureJob> {
+/**
+ * `quiet` is a batch capture: the batch page assembles and saves it, so nothing is opened in front of
+ * the user on success or failure, and a page that refuses the content script is reported rather
+ * than photographed as a visible area -- in a batch that refusal is usually a browser error page.
+ */
+async function createCapture(mode: CaptureMode, providedTab?: chrome.tabs.Tab, quiet = false): Promise<CaptureJob> {
   const tab = providedTab ?? (await chrome.tabs.query({ active: true, currentWindow: true }))[0]
   if (!tab?.id || tab.windowId === undefined) {
     throw new PageShotterError('NO_ACTIVE_TAB', `No active ${BROWSER.name} tab was found.`)
@@ -320,11 +352,11 @@ async function createCapture(mode: CaptureMode, providedTab?: chrome.tabs.Tab): 
     ownership.release(tabId, job.id)
     throw error
   }
-  void runCapture(job, tab).finally(() => ownership.release(tabId, job.id))
+  void runCapture(job, tab, quiet).finally(() => ownership.release(tabId, job.id))
   return job
 }
 
-async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab): Promise<void> {
+async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab, quiet = false): Promise<void> {
   const tabId = tab.id as number
   const windowId = tab.windowId
   let contentPrepared = false
@@ -343,6 +375,9 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab): Promise<void> 
       contentPrepared = true
       await captureRegion(job, tabId, windowId)
     } else if (job.mode === 'visible') {
+      // Injecting first proves the tab holds the page that was asked for. A screenshot alone would
+      // succeed on the browser's own "this site can't be reached" page and save it as the result.
+      if (quiet) await ensureContentScript(tabId)
       await captureVisibleArea(job, tabId, windowId)
     } else {
       let useVisibleAreaFallback = false
@@ -360,7 +395,7 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab): Promise<void> 
          */
         fileAccessDenied =
           isFileUrl(tab.url) && !isRestrictedPageUrl(tab.url) && !(await chrome.extension.isAllowedFileSchemeAccess())
-        if (!fileAccessDenied && !visibleAreaFallbackAvailable(failure, job.mode)) {
+        if (quiet || (!fileAccessDenied && !visibleAreaFallbackAvailable(failure, job.mode))) {
           throw new PageShotterError(failure.code, failure.message)
         }
         useVisibleAreaFallback = true
@@ -444,7 +479,7 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab): Promise<void> 
     await putJob(job)
     persistedComplete = true
     await throwIfCancelled(job.id)
-    await openResultTab(job.id, windowId)
+    if (!quiet) await openResultTab(job.id, windowId)
   } catch (error) {
     const failure = captureError(error, tab.url)
     // A stored capture is never re-reported as a failure. Everything after a persisted completion
@@ -455,7 +490,7 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab): Promise<void> 
       case 'already-delivered':
         return
       case 'deliver-stopped':
-        await deliverStoppedCapture(job, windowId).catch(() => undefined)
+        await deliverStoppedCapture(job, windowId, quiet).catch(() => undefined)
         return
       case 'mark-cancelled':
         job.status = 'cancelled'
@@ -472,6 +507,9 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab): Promise<void> 
         job.updatedAt = Date.now()
         await putJob(job).catch(() => undefined)
         await deleteSegments(job.id).catch(() => undefined)
+        // A batch reports its own failures, and a page that would not load is not PageShotter
+        // failing, so it does not count against the review ask either.
+        if (quiet) return
         await openResultTabInFront(job.id, windowId)
         void recordCaptureFailed()
         return
@@ -490,7 +528,7 @@ async function runCapture(job: CaptureJob, tab: chrome.tabs.Tab): Promise<void> 
  * running job records the height it *planned* to reach, and using that here would pad the screenshot
  * with blank space for every section that was never taken.
  */
-async function deliverStoppedCapture(job: CaptureJob, windowId: number): Promise<void> {
+async function deliverStoppedCapture(job: CaptureJob, windowId: number, quiet: boolean): Promise<void> {
   const segments = await getSegments(job.id)
   const covered = segments.reduce(
     (deepest, segment) => Math.max(deepest, segment.scrollY + segment.captureHeight),
@@ -505,7 +543,7 @@ async function deliverStoppedCapture(job: CaptureJob, windowId: number): Promise
   job.error = undefined
   job.updatedAt = Date.now()
   await putJob(job)
-  await openResultTabInFront(job.id, windowId)
+  if (!quiet) await openResultTabInFront(job.id, windowId)
 }
 
 async function captureVisibleArea(job: CaptureJob, tabId: number, windowId: number): Promise<void> {

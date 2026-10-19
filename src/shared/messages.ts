@@ -139,6 +139,11 @@ export type RuntimeRequest =
    * opened it, closes it.
    */
   | { type: 'CLOSE_RESULT_TAB' }
+  /**
+   * One page of a batch, in a tab the batch page opened and loaded. The worker captures it and
+   * opens nothing; the batch page polls `GET_JOB` and saves the result itself.
+   */
+  | { type: 'START_BATCH_CAPTURE'; tabId: number; mode: 'full' | 'visible' }
 
 export type RuntimeResponse =
   | { ok: true; jobId?: string; job?: CaptureJob }

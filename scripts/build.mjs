@@ -71,6 +71,7 @@ const options = {
   absWorkingDir: root,
   entryPoints: {
     background: 'src/background/service-worker.ts',
+    batch: 'src/batch/batch.ts',
     content: 'src/content/capture-session.ts',
     editor: 'src/editor/editor.ts',
     history: 'src/history/history.ts',

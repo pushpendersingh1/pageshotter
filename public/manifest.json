@@ -13,6 +13,9 @@
   "optional_permissions": [
     "downloads"
   ],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
   "options_page": "settings.html",
   "background": {
     "service_worker": "background.js"
