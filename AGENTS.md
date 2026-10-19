@@ -95,7 +95,9 @@ and a pull request that breaks one will not be merged.
   requested at runtime when the user saves into a folder or starts a batch. `<all_urls>` exists only
   under `optional_host_permissions`, requested when a batch starts or its tab list is first shown
   (`captureVisibleTab` accepts nothing narrower, and a tab's address is unreadable without it), and
-  nothing but batch capture may depend on it. A new permission also changes the store
+  nothing but batch capture may depend on it. `https://mail.google.com/*` exists only under
+  `optional_host_permissions` too, requested when the user presses Gmail, and nothing but Send to
+  Gmail (`src/result/gmail.ts`) may depend on it. A new permission also changes the store
   listing and the privacy policy, so it needs discussion in an issue first.
 - **Anything newly persisted is a disclosure change**, even when it needs no permission. IndexedDB
   asks Chrome for nothing, so the permission rule above never fires on it. If a change stores a new
@@ -105,11 +107,15 @@ and a pull request that breaks one will not be merged.
 - **No remote code.** No `eval`, no `new Function`, no injected script URLs, no CDN. `dist/` is
   scanned before packaging.
 - **Everything local.** No screenshot upload, no page DOM leaving the device, no telemetry, and no
-  webfont or other network request of any kind.
+  webfont or other network request of any kind. The one exception is the user's own: Send to Gmail
+  hands the export to a compose window in their own Gmail tab when they press it, and the extension
+  makes no request of its own to do it.
 - **Every page mutation is reversible.** Style changes go through `MutationLedger`, which restores on
   success, failure, cancellation, watchdog timeout, and worker restart. Never mutate a page directly.
-- **No per-hostname special-casing.** Detection must be generic. Hostname lists read as suspicious to
-  store reviewers, and someone else's DOM is a permanent maintenance liability.
+- **No per-hostname special-casing.** Capture detection must be generic. Hostname lists read as
+  suspicious to store reviewers, and someone else's DOM is a permanent maintenance liability. A
+  destination the user picks by name, like Gmail, is not capture detection; its DOM is still a
+  liability, so it is kept to one input in one file.
 - **Fail safely and say why.** A partial screenshot with an explanation beats an error; an error with
   a plain-English cause beats a silent failure.
 

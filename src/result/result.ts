@@ -39,6 +39,7 @@ import { wireThemeButton } from '../shared/theme'
 import { captureNotice, type NoticeContent } from './notice'
 import { buildReview, fadeOutUp, morph, openPop } from './review-ui'
 import { waitForDownloadCompletion, type DownloadsApi } from './download-completion'
+import { gmailOutcomeMessage, gmailSizeProblem, requestGmailAccess, sendToGmail } from './gmail'
 import {
   getReviewInstalledAt,
   getReviewState,
@@ -159,6 +160,7 @@ const exportMenu: ExportMenu = new ExportMenu(
 )
 const copyButton = requiredElement<HTMLButtonElement>('copy')
 const printButton = requiredElement<HTMLButtonElement>('print')
+const gmailButton = requiredElement<HTMLButtonElement>('gmail')
 const deleteButton = requiredElement<HTMLButtonElement>('delete-capture')
 const editButton = requiredElement<HTMLButtonElement>('edit')
 const exportNote = requiredElement<HTMLElement>('export-note')
@@ -240,6 +242,8 @@ const previewUrls: string[] = []
 downloadButton.addEventListener('click', () => void runExport())
 copyButton.addEventListener('click', () => void copyPng())
 printButton.addEventListener('click', () => void printCapture())
+// The permission is asked for here, in the click itself; see `requestGmailAccess`.
+gmailButton.addEventListener('click', () => void emailCapture(requestGmailAccess()))
 deleteButton.addEventListener('click', () => void deleteCaptureAndClose())
 editButton.addEventListener('click', () => {
   if (editorEntryId) {
@@ -324,6 +328,7 @@ async function loadResult(): Promise<void> {
     downloadButton.disabled = false
     copyButton.disabled = typeof ClipboardItem === 'undefined'
     printButton.disabled = false
+    gmailButton.disabled = false
     // Nothing to delete when the capture never reached history; the picture on screen is all there is.
     deleteButton.disabled = editorEntryId === ''
     editButton.disabled = false
@@ -404,6 +409,7 @@ async function loadFromHistory(entryId: string): Promise<void> {
   downloadButton.disabled = false
   copyButton.disabled = typeof ClipboardItem === 'undefined'
   printButton.disabled = false
+  gmailButton.disabled = false
   editorEntryId = entry.id
   // Always enabled on this path, unlike the live-job one: reaching a capture through history is
   // proof it is in history.
@@ -956,6 +962,40 @@ async function printCapture(): Promise<void> {
       ? await cachedEncode('png', fit, () => encodePng(image as TiledImage, region, fit))
       : await ensurePng()
     if (blob) printImage(blob)
+  })
+}
+
+/**
+ * Send the file Download would save -- the same format, quality, scale, crop and name -- to a new
+ * message in Gmail.
+ */
+async function emailCapture(access: Promise<boolean>): Promise<void> {
+  await withButton(gmailButton, 'Opening Gmail…', async () => {
+    const format = exportMenu.current()
+    const blocked = exportMenu.problemParts()
+    if (blocked) {
+      showExportError(blocked)
+      return
+    }
+    if (!(await access)) {
+      showExportError([noticeText('Gmail access was not allowed, so nothing was sent.')])
+      return
+    }
+    const blob = await encodeExport(format)
+    if (!blob) return
+    const tooLarge = gmailSizeProblem(blob.size)
+    if (tooLarge) {
+      showExportError([noticeText(tooLarge)])
+      return
+    }
+    const filename = suggestedFilename({ title: pageTitle, url: pageUrl, capturedAt, extension: exportFileExtension(format) })
+    const outcome = await sendToGmail(blob, filename)
+    if (outcome !== 'attached') {
+      showExportError([noticeText(gmailOutcomeMessage(outcome))])
+      return
+    }
+    setButtonLabel(gmailButton, 'Attached')
+    window.setTimeout(() => setButtonLabel(gmailButton, 'Gmail'), 1_400)
   })
 }
 

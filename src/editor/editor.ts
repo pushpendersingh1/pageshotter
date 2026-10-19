@@ -7,6 +7,7 @@ import {
   type ExportFormat,
 } from '../result/export-options'
 import { restoreTiledImage } from '../result/history-io'
+import { gmailOutcomeMessage, gmailSizeProblem, requestGmailAccess, sendToGmail } from '../result/gmail'
 import { createPdfBlob } from '../result/pdf-export'
 import {
   PRESENT_KEY,
@@ -119,6 +120,7 @@ const downloadButton = requiredElement<HTMLButtonElement>('download')
 const exportOptionsButton = requiredElement<HTMLButtonElement>('export-options')
 const copyButton = requiredElement<HTMLButtonElement>('copy')
 const printButton = requiredElement<HTMLButtonElement>('print')
+const gmailButton = requiredElement<HTMLButtonElement>('gmail')
 const deleteButton = requiredElement<HTMLButtonElement>('delete-capture')
 const doneButton = requiredElement<HTMLButtonElement>('done')
 const hostLabel = requiredElement<HTMLElement>('host')
@@ -304,6 +306,8 @@ textEditor.addEventListener('input', () => {
 downloadButton.addEventListener('click', () => void download())
 copyButton.addEventListener('click', () => void copy())
 printButton.addEventListener('click', () => void print())
+// The permission is asked for here, in the click itself; see `requestGmailAccess`.
+gmailButton.addEventListener('click', () => void email(requestGmailAccess()))
 deleteButton.addEventListener('click', () => void deleteCaptureAndClose())
 doneButton.addEventListener('click', () => void done())
 requiredElement<HTMLButtonElement>('home').addEventListener('click', () => void done())
@@ -370,6 +374,7 @@ async function loadEditor(): Promise<void> {
     exportOptionsButton.disabled = false
     copyButton.disabled = typeof ClipboardItem === 'undefined'
     printButton.disabled = false
+    gmailButton.disabled = false
     deleteButton.disabled = false
     doneButton.disabled = false
     cropButton.disabled = false
@@ -445,7 +450,9 @@ function syncStatus(): void {
 
 /**
  * The overflow menu. Editor defaults and Delete moved into it from the top bar and the inspector
- * head; both kept their ids, so every handler that already wires them is untouched.
+ * head; both kept their ids, so every handler that already wires them is untouched. Send to Gmail
+ * lives here rather than beside Print because the top bar has no room left: one more button there
+ * overlapped the centred zoom controls at 1280px.
  */
 function wireMoreMenu(): void {
   const button = requiredElement<HTMLButtonElement>('more')
@@ -465,8 +472,8 @@ function wireMoreMenu(): void {
     open(false)
     openShortcuts()
   })
-  // Both moved items close the menu themselves; their own handlers do the work.
-  for (const id of ['editor-defaults', 'delete-capture']) {
+  // These items close the menu themselves; their own handlers do the work.
+  for (const id of ['gmail', 'editor-defaults', 'delete-capture']) {
     requiredElement<HTMLButtonElement>(id).addEventListener('click', () => open(false))
   }
 }
@@ -648,6 +655,7 @@ function syncFrameButtons(): void {
   exportOptionsButton.disabled = cropMode !== undefined
   copyButton.disabled = cropMode !== undefined || typeof ClipboardItem === 'undefined'
   printButton.disabled = cropMode !== undefined
+  gmailButton.disabled = cropMode !== undefined
   deleteButton.disabled = cropMode !== undefined
   doneButton.disabled = cropMode !== undefined
   requiredElement<HTMLButtonElement>('image-tool').disabled = cropMode !== undefined
@@ -2187,6 +2195,19 @@ async function copy(): Promise<void> {
 async function print(): Promise<void> {
   await busy(printButton, 'Preparing...', async () => {
     printImage(await encode('png', 1))
+  })
+}
+
+/** Sends what Download would save to a new message in Gmail. */
+async function email(access: Promise<boolean>): Promise<void> {
+  await busy(gmailButton, 'Opening Gmail…', async () => {
+    if (!(await access)) throw new Error('Gmail access was not allowed, so nothing was sent.')
+    const format = exportMenu.current()
+    const blob = await encode(format, exportMenu.scale())
+    const tooLarge = gmailSizeProblem(blob.size)
+    if (tooLarge) throw new Error(tooLarge)
+    const outcome = await sendToGmail(blob, `pageshotter-edited.${exportFileExtension(format)}`)
+    if (outcome !== 'attached') throw new Error(gmailOutcomeMessage(outcome))
   })
 }
 
