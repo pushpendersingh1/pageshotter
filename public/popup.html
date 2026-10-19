@@ -71,6 +71,24 @@
             <span class="sub">Drag a region</span>
           </button>
         </div>
+
+        <!-- Both open the Batch page, which picks the pages, holds the options and shows progress. -->
+        <div class="row2">
+          <button id="capture-tabs" class="btn cell" type="button">
+            <span class="ico" aria-hidden="true">
+              <svg class="icon" data-icon="versions" width="17" height="17" viewBox="0 0 24 24" focusable="false"></svg>
+            </span>
+            <span class="label">All tabs</span>
+            <span class="sub">Pick from this window</span>
+          </button>
+          <button id="open-batch" class="btn cell" type="button">
+            <span class="ico" aria-hidden="true">
+              <svg class="icon" data-icon="list-details" width="17" height="17" viewBox="0 0 24 24" focusable="false"></svg>
+            </span>
+            <span class="label">List of pages</span>
+            <span class="sub">Paste addresses</span>
+          </button>
+        </div>
       </div>
 
       <div id="capturing" hidden aria-live="polite">
@@ -143,10 +161,6 @@
 
     <nav class="foot">
       <span class="privacy">Nothing leaves this browser</span>
-      <button id="open-batch" type="button">
-        <svg class="icon" data-icon="list-details" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-        Batch
-      </button>
       <button id="open-settings" type="button">
         <svg class="icon" data-icon="adjustments-horizontal" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
         Settings

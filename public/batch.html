@@ -38,7 +38,7 @@
       <div class="bar">
         <div class="titlewrap">
           <h1>Batch capture</h1>
-          <p class="meta">Capture a list of pages, one after another, each in a tab beside this one.</p>
+          <p class="meta">Capture a list of pages, or the tabs open in this window, one after another.</p>
         </div>
         <div class="tools">
           <button id="theme" class="ghost only-icon" type="button">
@@ -52,13 +52,36 @@
       <main class="work">
         <section class="group" aria-labelledby="pages-heading">
           <h2 class="eyebrow" id="pages-heading"><svg class="icon" data-icon="list-details" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Pages</h2>
-          <div class="field field-block">
+          <div class="field">
+            <div class="field-text">
+              <span class="row-label" id="batch-source-label">Capture from</span>
+              <p class="note">Addresses you list, or the tabs already open in this window.</p>
+            </div>
+            <div class="seg" id="batch-source" role="radiogroup" aria-labelledby="batch-source-label">
+              <label><input type="radio" name="batch-source" value="urls" /><span>Addresses</span></label>
+              <label><input type="radio" name="batch-source" value="tabs" /><span>Open tabs</span></label>
+            </div>
+          </div>
+          <div class="field field-block" id="urls-panel">
             <div class="field-text">
               <label class="row-label" for="urls">One address per line</label>
               <p class="note">Addresses without <code>https://</code> get it added. Duplicates are captured once.</p>
             </div>
             <textarea id="urls" rows="8" spellcheck="false" autocomplete="off" placeholder="example.com/pricing&#10;https://example.com/docs" aria-describedby="url-summary"></textarea>
             <p class="note" id="url-summary" role="status"></p>
+          </div>
+          <div class="field field-block" id="tabs-panel" hidden>
+            <div class="field-text">
+              <span class="row-label" id="tab-list-label">Tabs in this window</span>
+              <p class="note">Each one is captured where it is, as it is now, and left open.</p>
+            </div>
+            <ul class="tab-list" id="tab-list" aria-labelledby="tab-list-label"></ul>
+            <div class="tab-tools">
+              <p class="note" id="tab-summary" role="status"></p>
+              <button id="tabs-access" class="btn" type="button" hidden>Allow access</button>
+              <button id="tabs-all" class="btn" type="button">Select all</button>
+              <button id="tabs-none" class="btn" type="button">Select none</button>
+            </div>
           </div>
         </section>
 
@@ -129,7 +152,7 @@
     <dialog class="confirm" id="start-dialog" aria-labelledby="start-dialog-heading">
       <div class="confirm-body">
         <h2 id="start-dialog-heading">Stay on the page being captured</h2>
-        <p>
+        <p id="start-dialog-how">
           PageShotter opens each page in a new tab beside this one and captures it while it is on
           screen. Please don't switch tabs or windows until the batch finishes.
         </p>

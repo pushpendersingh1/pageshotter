@@ -46,7 +46,22 @@
 .report li[data-state='saved'] .state { color: var(--ink); }
 .report li[data-active='true'] .address { font-weight: 600; }
 
+/* The tab picker: the progress list's rows, with a tick box where the number goes. */
+.tab-list { display: grid; margin: 0; padding: 0; list-style: none; max-height: 360px; overflow-y: auto; }
+.tab-list li { border-top: 1px solid var(--line); }
+.tab-list li:first-child { border-top: 0; }
+.tab-list label { display: grid; grid-template-columns: 2.2em minmax(0, 1fr); column-gap: 10px; align-items: center; padding: 9px 0; cursor: pointer; }
+.tab-list input { justify-self: start; width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.tab-list label:has(input:disabled) { cursor: default; opacity: .6; }
+.tab-list .page { display: grid; gap: 2px; min-width: 0; }
+.tab-list .address { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 13px/1.4 var(--ui); color: var(--ink); }
+.tab-list .state { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 12.5px/1.5 var(--ui); color: var(--ink-2); }
+.tab-tools { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.tab-tools .note { margin-right: auto; }
+
 @media (max-width: 560px) {
+  .tab-tools { flex-wrap: wrap; }
+  .tab-tools .note { flex-basis: 100%; }
   .batch-actions { flex-wrap: wrap; }
   .batch-actions .note { flex-basis: 100%; }
 }

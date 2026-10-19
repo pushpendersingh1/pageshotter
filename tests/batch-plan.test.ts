@@ -4,9 +4,11 @@ import {
   batchFilename,
   batchFolder,
   batchFolderName,
+  batchSource,
   parseBatchUrls,
   readBatchOptions,
   siteCount,
+  tabCapturable,
 } from '../src/batch/batch-plan'
 
 describe('parseBatchUrls', () => {
@@ -84,5 +86,29 @@ describe('readBatchOptions', () => {
   /* Unset, so the batch follows the Settings file type until someone picks one here. */
   it('has no format of its own by default', () => {
     expect(DEFAULT_BATCH_OPTIONS.format).toBeUndefined()
+  })
+})
+
+describe('batchSource', () => {
+  it('opens on the tab list only when asked to', () => {
+    expect(batchSource('?source=tabs')).toBe('tabs')
+    expect(batchSource('')).toBe('urls')
+    expect(batchSource('?source=windows')).toBe('urls')
+  })
+})
+
+describe('tabCapturable', () => {
+  it('offers web pages and local files', () => {
+    expect(tabCapturable('https://example.com/')).toBe(true)
+    expect(tabCapturable('http://localhost:8080/')).toBe(true)
+    expect(tabCapturable('file:///Users/me/page.html')).toBe(true)
+  })
+
+  /* An address the extension cannot read is a page it may not touch. */
+  it('leaves out browser pages, extension pages and unreadable tabs', () => {
+    expect(tabCapturable('chrome://settings/')).toBe(false)
+    expect(tabCapturable('about:addons')).toBe(false)
+    expect(tabCapturable('chrome-extension://abc/batch.html')).toBe(false)
+    expect(tabCapturable(undefined)).toBe(false)
   })
 })

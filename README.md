@@ -41,8 +41,9 @@
 - **Present.** Wrap a capture in a mock browser window with a background, margin, corners, shadow
   and date stamp.
 - **History.** Reopen and re-export earlier captures, and search them by the words on the page.
-- **Batch capture.** Paste a list of addresses; each page is opened, captured and saved as its own
-  file, with a report of anything that failed and a Retry for it.
+- **Batch capture.** Paste a list of addresses, or pick from the tabs open in a window; each page is
+  captured and saved as its own file, with a report of anything that failed and a Retry for it. Open
+  tabs are captured where they are, as they are, and left open.
 
 <table>
   <tr>
@@ -60,8 +61,8 @@
 PageShotter makes no network requests. There is no server, account, analytics or remote code, and
 its only required permissions are `activeTab`, `scripting` and `contextMenus` (the right-click menu). `downloads` is optional and requested
 only if you choose to save into a folder. Access to all websites is optional too, and requested only
-when you start a batch capture: the browser lets an extension screenshot a tab you didn't open it on
-only with that access. Everything it keeps is in the extension's own browser
+when you start a batch capture or list your open tabs for one: the browser lets an extension read
+another tab's address, or screenshot a tab you didn't open it on, only with that access. Everything it keeps is in the extension's own browser
 storage; [`public/welcome.html`](public/welcome.html) lists exactly what is stored and for how long.
 
 ## Build and load it yourself
@@ -99,7 +100,7 @@ src/
   editor/       the annotation editor: a pure scene model and two renderers
   popup/        the toolbar popup
   history/      saved captures
-  batch/        batch capture of a list of addresses
+  batch/        batch capture of a list of addresses or the open tabs
   settings/     preferences
   welcome/      the first-run page
   shared/       messages, geometry, limits, IndexedDB, errors
