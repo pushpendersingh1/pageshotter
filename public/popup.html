@@ -21,27 +21,31 @@
           <rect x="5" y="58.8983" width="1.90476" height="2.0339" fill="var(--accent-hi)"/>
           <rect x="63.0947" y="58.8983" width="1.90476" height="2.0339" fill="var(--accent-hi)"/>
       </svg>
-      <!-- One button cycling system, light, dark. Label and icon are set by drawTheme(). -->
-      <button id="theme" class="theme" type="button">
-        <svg class="icon" data-icon="device-desktop" data-theme-icon="system" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-        <svg class="icon" data-icon="sun" data-theme-icon="light" viewBox="0 0 24 24" aria-hidden="true" focusable="false" hidden></svg>
-        <svg class="icon" data-icon="moon" data-theme-icon="dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false" hidden></svg>
-      </button>
+      <!--
+        A standing fact about the product, not a control, so it is plain text rather than a button.
+        The theme is chosen on the settings page; every page, this one included, follows it.
+      -->
+      <span class="local" title="Nothing leaves this browser">
+        <svg class="icon" data-icon="lock" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+        Local only
+      </span>
     </header>
 
     <div class="actions">
+      <!--
+        Each button's visible text is its accessible name; the title is the one-line description the
+        old two-line buttons printed, and is read as the accessible description.
+      -->
       <div id="idle">
-        <span class="eyebrow">Capture</span>
-
         <div class="slot">
-          <button id="capture-full" class="btn primary" type="button">
-            <span class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <button id="capture-full" class="btn primary" type="button" title="Scrolls to the bottom and stitches it">
+            <!--
+              The viewfinder corners were here: <span class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              Restoring that line brings them back; their hover and shutter rules are still in popup.css.
+            -->
             <span class="flash" aria-hidden="true"></span>
-            <span class="ico" aria-hidden="true">
-              <svg class="icon" data-icon="arrow-autofit-down" width="17" height="17" viewBox="0 0 24 24" focusable="false"></svg>
-            </span>
+            <svg class="icon" data-icon="arrow-autofit-down" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
             <span class="label">Full page</span>
-            <span class="sub">Scrolls to the bottom and stitches it</span>
           </button>
           <!-- Label, state and visibility all come from chrome.commands.getAll(); see drawShortcuts(). -->
           <button id="shortcut-full" class="kbd" type="button" hidden></button>
@@ -49,43 +53,33 @@
 
         <div class="row2">
           <div class="slot">
-            <button id="capture-visible" class="btn cell" type="button">
-              <span class="ico" aria-hidden="true">
-                <svg class="icon" data-icon="browser" width="17" height="17" viewBox="0 0 24 24" focusable="false"></svg>
-              </span>
-              <span class="label">Visible area</span>
-              <span class="sub">What is on screen</span>
+            <button id="capture-visible" class="btn cell" type="button" title="What is on screen">
+              <svg class="icon" data-icon="browser" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+              <span class="label">Visible</span>
             </button>
             <button id="shortcut-visible" class="kbd" type="button" hidden></button>
           </div>
 
           <div class="slot">
-            <button id="capture-region" class="btn cell" type="button">
-              <span class="ico" aria-hidden="true">
-                <svg class="icon" data-icon="capture" width="17" height="17" viewBox="0 0 24 24" focusable="false"></svg>
-              </span>
+            <button id="capture-region" class="btn cell" type="button" title="Drag a region">
+              <svg class="icon" data-icon="capture" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
               <span class="label">Selection</span>
-              <span class="sub">Drag a region</span>
             </button>
             <button id="shortcut-region" class="kbd" type="button" hidden></button>
           </div>
         </div>
 
         <!-- Both open the Batch page, which picks the pages, holds the options and shows progress. -->
-        <div class="row2">
-          <button id="capture-tabs" class="btn cell" type="button">
-            <span class="ico" aria-hidden="true">
-              <svg class="icon" data-icon="versions" width="17" height="17" viewBox="0 0 24 24" focusable="false"></svg>
-            </span>
+        <div class="batch">
+          <button id="capture-tabs" class="row" type="button" title="Pick from this window">
+            <svg class="icon" data-icon="versions" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
             <span class="label">All tabs</span>
-            <span class="sub">Pick from this window</span>
+            <svg class="icon chevron" data-icon="chevron-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
           </button>
-          <button id="open-batch" class="btn cell" type="button">
-            <span class="ico" aria-hidden="true">
-              <svg class="icon" data-icon="list-details" width="17" height="17" viewBox="0 0 24 24" focusable="false"></svg>
-            </span>
-            <span class="label">List of pages</span>
-            <span class="sub">Paste addresses</span>
+          <button id="open-batch" class="row" type="button" title="Paste addresses">
+            <svg class="icon" data-icon="list-details" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+            <span class="label">List of URLs</span>
+            <svg class="icon chevron" data-icon="chevron-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
           </button>
         </div>
       </div>
@@ -138,28 +132,11 @@
       </div>
     </div>
 
-    <section class="recent" aria-labelledby="recent-heading">
-      <div class="recent-head">
-        <!-- The count is a property of the section, not of the link, so it lives on the eyebrow. -->
-        <span class="eyebrow" id="recent-heading">Recent <span class="count" id="recent-count" hidden></span></span>
-        <!-- Both are revealed together by drawRecent(), once there is a history worth visiting. -->
-        <button id="view-all" class="link" type="button" hidden>
-          View all
-          <svg class="icon" data-icon="arrow-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-        </button>
-      </div>
-      <div id="shots">
-        <!-- Shown by drawRecent() only once the store is known to be empty, never before. -->
-        <div class="empty" id="shots-empty" hidden>
-          <svg class="icon" data-icon="camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-          <p>No captures yet</p>
-          <span class="empty-hint">Captures you keep show up here</span>
-        </div>
-      </div>
-    </section>
-
     <nav class="foot">
-      <span class="privacy">Nothing leaves this browser</span>
+      <button id="open-history" type="button">
+        <svg class="icon" data-icon="clock" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+        History
+      </button>
       <button id="open-settings" type="button">
         <svg class="icon" data-icon="adjustments-horizontal" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
         Settings

@@ -7,35 +7,41 @@
  * is the one deliberate departure from the mock.
  */
 
-body { width: 360px; background: var(--surface); color: var(--ink); }
+/*
+ * One spacing step, `--gap`, separates every block in the window, and the head and foot share one
+ * inset, `--edge`, so the two bars frame the controls evenly. The foot's buttons carry most of that
+ * inset as their own padding, which gives them a hit area the full height of the bar.
+ */
+body {
+  --gap: 8px;
+  --edge: 14px;
+  width: 360px;
+  background: var(--surface);
+  color: var(--ink);
+}
 
 /* ---------- head ---------- */
 
-.head { display: flex; align-items: center; gap: 12px; padding: 14px 16px 12px; }
-.lockup { display: block; width: 150px; height: auto; color: var(--ink); }
+.head { display: flex; align-items: center; gap: 12px; padding: var(--edge) 16px; }
+.lockup { display: block; width: 128px; height: auto; color: var(--ink); }
 
 /*
- * One button rather than three, because two of the states are rarely wanted and a segmented control
- * would spend a third of a 360px head on a preference. The icon names the state it is *in*; the
- * label names the state it will move to, which is what a title on a cycling control has to say.
+ * The privacy claim, kept quiet on purpose: it is a standing fact about the product, not a thing
+ * that just happened, and a reassurance that shouts is read as a defence. No green dot, because
+ * section 5 allows no second accent hue, and a dot would imply a live status being checked.
  */
-.theme {
+.local {
   margin-left: auto;
-  flex: none;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
+  gap: 4px;
+  padding: 3px 7px;
+  font: 500 11px/1 var(--ui);
   color: var(--ink-2);
-  background: var(--surface-2);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  transition: color 150ms ease, border-color 150ms ease;
+  border-radius: 999px;
 }
-.theme:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
-.theme .icon { width: 14px; height: 14px; }
+.local .icon { width: 12px; height: 12px; }
 
 /*
  * Mono, uppercase and tracked out: an eyebrow names the region below it and is never read as a
@@ -51,34 +57,23 @@ body { width: 360px; background: var(--surface); color: var(--ink); }
 
 /* ---------- actions ---------- */
 
-/*
- * The window must not resize between states, so `.actions` reserves the height of the idle buttons
- * and the panels sit inside it. `align-content: start` puts a panel where the buttons were rather
- * than stretching it to fill the area with accent-soft.
- */
-.actions { display: grid; align-content: start; padding: 2px 16px 14px; min-height: 202px; }
+.actions { display: grid; align-content: start; padding: 0 16px var(--gap); }
 /*
  * `.busy` is every state where a panel has replaced the controls -- a capture running, and a capture
- * that stopped. Neither has to hold the window's height, and holding it was costing most of the
- * popup: the reservation above kept the idle buttons' 202px while the recent list and footer stayed
- * in flow to keep the total steady, so a panel a third of that size sat above a field of empty
- * surface. Measured on the stopped panel: 150px of content in a 202px box, under 209px of invisible
- * list and footer.
- *
- * Neither state can be returned to without the window resizing anyway -- the panel replaces the
- * controls until the capture ends or is retried -- so there is no jump here to protect against.
- *
- * `display: none` rather than `visibility: hidden`, because the point is to reclaim the space and
- * not merely to stop painting it. It also keeps them out of the tab order, which the previous rule
- * was relying on `visibility` for.
+ * that stopped. The foot's routes lead away from a capture that is still the thing on screen, so it
+ * goes while the panel is up. `display: none` rather than `visibility: hidden`, because the point is
+ * to reclaim the space, and it also keeps the hidden buttons out of the tab order.
  */
-.busy .recent, .busy .foot { display: none; }
-.busy .actions { min-height: 0; }
+.busy .foot { display: none; }
+/*
+ * Idle, the last batch row's own padding already supplies most of the space above the foot, so the
+ * area closes on `--gap`. A panel has no such padding and is the last thing in the window.
+ */
+.busy .actions { padding-bottom: var(--edge); }
 
 /* `align-content: start` keeps the buttons their own size; only the panels stretch. */
-#idle { display: grid; align-content: start; gap: 8px; }
-#idle > .eyebrow { margin: 4px 0; }
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#idle { display: grid; align-content: start; gap: var(--gap); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
 
 /*
  * A capture button and its shortcut chip are two controls that overlap, so the chip is a sibling
@@ -87,11 +82,16 @@ body { width: 360px; background: var(--surface); color: var(--ink); }
  */
 .slot { position: relative; }
 
+/* Every capture control is one line: icon, label, and the shortcut chip laid over the right end. */
 .btn {
   position: relative;
   appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
   width: 100%;
-  padding: 12px;
+  min-height: 38px;
+  padding: 0 12px;
   text-align: left;
   color: var(--ink);
   background: var(--surface-2);
@@ -102,38 +102,61 @@ body { width: 360px; background: var(--surface); color: var(--ink); }
 }
 .btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: var(--surface); }
 .btn:active { transform: translateY(1px); }
-.btn .label { display: block; font: 600 14px/1.2 var(--ui); letter-spacing: -0.005em; }
-.btn .sub { display: block; margin-top: 3px; font-size: 11.5px; color: var(--ink-2); }
+.btn .icon { width: 16px; height: 16px; flex: none; }
+.btn .label { font: 600 13px/1.2 var(--ui); letter-spacing: -0.005em; }
 
 .primary {
-  display: grid;
-  grid-template-columns: 17px 1fr;
-  column-gap: 10px;
-  align-items: center;
-  padding: 14px 18px;
+  min-height: 44px;
+  padding: 0 14px;
   color: var(--on-accent);
   /*
    * The brand red, not the deepened one: this button is where the product shows its own colour.
-   * White on #FF0000 is 4.0:1, so the 14px/600 label is the smallest text allowed to sit on it --
-   * the 11.5px sub-label is 76% of the same colour on top of that and is deliberately secondary.
+   * White on #FF0000 is 4.0:1, so the 14px/600 label is the smallest text allowed to sit on it.
    * The label is `--on-accent` rather than white outright: the dark theme lifts this fill to
    * #FF4B3A, where white reaches 3.3:1 and near-black reaches 5.2:1.
    */
   background: var(--accent-hi);
   border-color: var(--accent-hi);
 }
-.primary .ico { grid-area: 1 / 1; display: flex; }
-.primary .label { grid-area: 1 / 2; }
-.primary .sub { grid-area: 2 / 2; color: var(--on-accent-2); }
+.primary .icon { width: 17px; height: 17px; }
+.primary .label { font-size: 14px; }
 /* `brightness()` cannot lift a channel already at 255, so hover deepens to `--accent` instead. */
 .primary:hover { background: var(--accent); border-color: var(--accent); }
 
-.cell { display: block; }
-.cell .ico { display: block; color: var(--ink-2); }
-.cell .label { margin-top: 9px; }
-.cell:hover .ico { color: var(--accent); }
+.cell .icon { color: var(--ink-2); }
+.cell:hover .icon { color: var(--accent); }
+
+/*
+ * The two batch routes leave the popup for a page of their own, so they are drawn as rows that lead
+ * somewhere, not as buttons that act here. The rows keep the buttons' horizontal inset, so all five
+ * icons sit on one vertical line.
+ */
+.batch { display: grid; }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  font: 500 13px/1.2 var(--ui);
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-radius: var(--r);
+}
+.row .icon { width: 16px; height: 16px; flex: none; color: var(--ink-2); }
+.row .chevron { margin-left: auto; width: 14px; height: 14px; }
+.row:hover { background: var(--surface-2); }
+.row:hover .icon { color: var(--accent); }
 
 /* ---------- viewfinder: the primary action is being aimed ---------- */
+
+/*
+ * The capture panel below still draws these corners. The `.primary .frame` rules are idle while the
+ * one-line Full page button has no `.frame` of its own (see the comment in popup.html); they are
+ * kept so restoring that one line of markup restores the gesture exactly.
+ */
 
 .frame { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
 .frame i {
@@ -201,35 +224,39 @@ body { width: 360px; background: var(--surface); color: var(--ink); }
 /* ---------- shortcut chips ---------- */
 
 /*
- * Mono, because a key binding is a machine fact and not prose. An unassigned binding is drawn as a
- * dashed accent outline rather than hidden: the route to Chrome's shortcut page is the whole point
- * of the chip, and a shortcut Chrome assigned automatically is exactly the kind that collides with
- * another extension's, so the route stays offered either way.
+ * Mono, because a key binding is a machine fact and not prose. Plain text with no box, so it reads
+ * as a property of the button rather than a second button -- although it is one: it opens the
+ * browser's shortcut page, so it keeps its own padding as a hit area and its own focus ring.
+ *
+ * An unassigned binding reads "Set" in the accent rather than disappearing: the route to the
+ * shortcut page is the whole point of the chip, and a shortcut assigned automatically is exactly the
+ * kind that collides with another extension's, so the route stays offered either way.
  */
 .kbd {
   position: absolute;
   z-index: 1;
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
-  padding: 4px 6px;
-  border: 1px solid transparent;
+  gap: 2px;
+  padding: 4px;
+  border: 0;
   border-radius: 6px;
-  font: 600 10.5px/1 var(--mono);
+  font: 500 11px/1 var(--mono);
   letter-spacing: 0.02em;
   white-space: nowrap;
-  background: var(--on-accent-wash);
-  color: var(--on-accent);
+  background: none;
+  color: var(--on-accent-2);
 }
-.slot .primary + .kbd { top: 14px; right: 18px; }
-.slot .cell + .kbd { top: 11px; right: 11px; background: var(--surface); border-color: var(--line); color: var(--ink-2); }
-/* The modifiers are drawn, not typed: at 10.5px the Mac glyphs are unreadable in a UI face, and
- * the chip is already the box, so each key sits inside it rather than in a box of its own. */
-.kbd { gap: 3px; }
+.slot .primary + .kbd { right: 10px; }
+.slot .cell + .kbd { right: 8px; color: var(--ink-2); }
+/* The modifiers are drawn, not typed: at this size the Mac glyphs are unreadable in a UI face. */
 .chip-glyph { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
-.kbd:hover { filter: brightness(1.1); }
-.slot .cell + .kbd:hover { border-color: var(--accent); color: var(--accent); filter: none; }
-.kbd.unset { border-style: dashed; border-color: var(--on-accent-line); }
-.slot .cell + .kbd.unset { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.slot .primary + .kbd:hover { color: var(--on-accent); }
+.slot .cell + .kbd:hover { color: var(--accent); }
+.kbd.unset { text-decoration: underline dashed; text-underline-offset: 3px; color: var(--on-accent); }
+.slot .cell + .kbd.unset { color: var(--accent); }
 
 /* ---------- capture in progress ---------- */
 
@@ -344,19 +371,7 @@ body { width: 360px; background: var(--surface); color: var(--ink); }
 #error .panel { justify-content: flex-start; }
 .panel-message { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ink-2); }
 
-/* ---------- recent ---------- */
-
-.recent { border-top: 1px solid var(--line); padding: 12px 16px 14px; }
-/*
- * Baseline-aligned rather than centred: the eyebrow is 10px mono and the link is 12px UI, and
- * centring two different sizes leaves neither sitting on the line the list below starts from.
- */
-.recent-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 8px; }
-
-/*
- * The one text link in the popup. Underlined on hover rather than always, because a permanently
- * underlined link beside an uppercase mono eyebrow reads as two competing labels.
- */
+/* "Fix this", the one text link in the popup. Underlined on hover rather than always. */
 .link {
   margin-left: auto;
   display: inline-flex;
@@ -371,108 +386,25 @@ body { width: 360px; background: var(--surface); color: var(--ink); }
 .link:hover { color: var(--accent); text-decoration: underline; }
 .link:focus-visible { outline-offset: 3px; border-radius: 3px; }
 .link .icon { width: 13px; height: 13px; }
-/*
- * The eyebrow is already mono, so the count only has to drop the tracking -- 0.13em between two
- * parentheses and a digit reads as three separate marks rather than one number.
- */
-.eyebrow .count { letter-spacing: 0; font-variant-numeric: tabular-nums; }
-#shots { height: 126px; overflow-y: auto; overscroll-behavior: contain; }
-#shots::-webkit-scrollbar { width: 6px; }
-#shots::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
-
-.empty {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  padding: 12px;
-  text-align: center;
-  background: var(--surface-2);
-  border: 1px dashed var(--line);
-  border-radius: var(--r);
-}
-.empty .icon { width: 30px; height: 30px; stroke-width: 1.5; color: var(--ink-2); opacity: 0.65; }
-.empty p { margin: 0; font: 500 12.5px/1.3 var(--ui); color: var(--ink); }
-.empty-hint { font-size: 11.5px; color: var(--ink-2); }
-
-.shot {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 7px 0;
-  text-align: left;
-  color: inherit;
-  background: none;
-  border: 0;
-  border-radius: 6px;
-}
-.shot + .shot { border-top: 1px solid var(--line); border-radius: 0; }
-.shot:hover .site { color: var(--accent); }
-/*
- * A fixed frame with the image pinned to its top edge. A full-page capture is many times taller than
- * it is wide, so sizing the row to the thumbnail would make every row a different height.
- */
-.thumb {
-  width: 34px;
-  height: 26px;
-  flex: none;
-  overflow: hidden;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-}
-.thumb img { display: block; width: 100%; height: auto; }
-.shot .site { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 500; }
-/*
- * `flex: none` and `nowrap` together: the dimensions are the column a person compares between rows,
- * so they hold their place and their single line. Everything the row cannot fit comes out of the
- * site name, which ellipsises -- a title long enough to wrap the numbers was folding them onto a
- * second line and making every row a different height.
- */
-.shot .dims {
-  margin-left: auto;
-  flex: none;
-  white-space: nowrap;
-  font: 500 11px/1 var(--mono);
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
 
 /* ---------- foot ---------- */
 
 /*
- * The version on one end and the only remaining destination on the other. History moved up to the
- * Recent header, where it is next to the thing it is a longer list of; leaving it here as well would
- * have been two routes to one page in a 360px window.
+ * Two destinations, one at each end. The bar's own padding plus each button's equals `--edge` and the
+ * head's 16px, so the labels sit exactly as far from the window edges as the logo and badge do.
  */
 .foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 2px;
-  padding: 0 6px 0 16px;
+  padding: calc(var(--edge) - 8px) 8px;
   border-top: 1px solid var(--line);
 }
-/*
- * The privacy claim, restored to the surface it is truest on. It sits in the quietest slot
- * deliberately: it is a standing fact about the product, not a thing that just happened, and a
- * reassurance that shouts is read as a defence.
- *
- * The old popup put a green dot in front of it. Section 5 allows no second accent hue, and a green
- * mark would have been one -- so this is words alone, which is also the only form the claim can take
- * without implying it is a live status the extension is checking.
- */
-.privacy { font-size: 11.5px; color: var(--ink-2); }
-/* The claim keeps the left; the page links pack together on the right rather than spreading out. */
-.foot .privacy { margin-right: auto; }
 .foot button {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 11px 10px;
+  padding: 8px;
   border-radius: 8px;
   font: 500 12.5px/1 var(--ui);
   color: var(--ink-2);

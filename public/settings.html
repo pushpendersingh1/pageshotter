@@ -40,13 +40,6 @@
           <h1>Settings</h1>
           <p class="meta">Everything here applies to this browser, on this computer.</p>
         </div>
-        <div class="tools">
-          <button id="theme" class="ghost only-icon" type="button">
-            <svg class="icon" data-icon="device-desktop" data-theme-icon="system" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-            <svg class="icon" data-icon="sun" data-theme-icon="light" viewBox="0 0 24 24" aria-hidden="true" focusable="false" hidden></svg>
-            <svg class="icon" data-icon="moon" data-theme-icon="dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false" hidden></svg>
-          </button>
-        </div>
       </div>
 
       <main class="work">
@@ -234,6 +227,17 @@
               <p class="note" id="shortcut-body"></p>
             </div>
             <button id="open-shortcuts" class="btn" type="button"><svg class="icon" data-icon="keyboard" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg><span>Change in <span data-browser="name">Chrome</span></span></button>
+          </div>
+        </section>
+
+        <section class="group" aria-labelledby="appearance-heading">
+          <h2 class="eyebrow" id="appearance-heading"><svg class="icon" data-icon="sun-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Appearance</h2>
+          <div class="field">
+            <div class="field-text">
+              <span class="row-label" id="theme-label">Theme</span>
+              <p class="note">The popup and every PageShotter page. System follows your computer and is the default.</p>
+            </div>
+            <div class="seg" id="theme-choice" role="radiogroup" aria-labelledby="theme-label"></div>
           </div>
         </section>
 
