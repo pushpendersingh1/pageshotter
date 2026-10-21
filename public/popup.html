@@ -21,14 +21,12 @@
           <rect x="5" y="58.8983" width="1.90476" height="2.0339" fill="var(--accent-hi)"/>
           <rect x="63.0947" y="58.8983" width="1.90476" height="2.0339" fill="var(--accent-hi)"/>
       </svg>
-      <!--
-        A standing fact about the product, not a control, so it is plain text rather than a button.
-        The theme is chosen on the settings page; every page, this one included, follows it.
-      -->
-      <span class="local" title="Nothing leaves this browser">
-        <svg class="icon" data-icon="lock" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-        Local only
-      </span>
+      <!-- One button cycling system, light, dark. Label and icon are set by wireThemeButton(). -->
+      <button id="theme" class="theme" type="button">
+        <svg class="icon" data-icon="device-desktop" data-theme-icon="system" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+        <svg class="icon" data-icon="sun" data-theme-icon="light" viewBox="0 0 24 24" aria-hidden="true" focusable="false" hidden></svg>
+        <svg class="icon" data-icon="moon" data-theme-icon="dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false" hidden></svg>
+      </button>
     </header>
 
     <div class="actions">
@@ -39,10 +37,7 @@
       <div id="idle">
         <div class="slot">
           <button id="capture-full" class="btn primary" type="button" title="Scrolls to the bottom and stitches it">
-            <!--
-              The viewfinder corners were here: <span class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-              Restoring that line brings them back; their hover and shutter rules are still in popup.css.
-            -->
+            <span class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
             <span class="flash" aria-hidden="true"></span>
             <svg class="icon" data-icon="arrow-autofit-down" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
             <span class="label">Full page</span>

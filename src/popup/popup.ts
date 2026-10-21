@@ -1,7 +1,7 @@
 import { extensionDetailsPage, openShortcutSettings } from '../shared/browser'
 import { filledSegments, segmentCount } from './progress-bar'
 import { captureEtaLabel } from '../shared/capture-eta'
-import { applyStoredTheme } from '../shared/theme'
+import { wireThemeButton } from '../shared/theme'
 import { keycaps, parseChromeShortcut } from '../shared/keycaps'
 import type {
   CaptureError,
@@ -24,6 +24,7 @@ const progressEta = requiredElement<HTMLElement>('progress-eta')
 const segs = requiredElement<HTMLElement>('segs')
 const errorAction = requiredElement<HTMLButtonElement>('error-action')
 const captureFull = requiredElement<HTMLButtonElement>('capture-full')
+const themeButton = requiredElement<HTMLButtonElement>('theme')
 
 /** The words each mode is called by, so the panel names what is running rather than "Capturing...". */
 const MODE_LABELS: Record<CaptureMode, string> = {
@@ -67,8 +68,7 @@ requiredElement<HTMLButtonElement>('open-settings').addEventListener('click', ()
 })
 
 // First, and before anything else is drawn: a stored palette that arrives late is a visible flash.
-// The choice itself is made on the settings page.
-void applyStoredTheme(document.documentElement)
+void wireThemeButton(themeButton, document.documentElement)
 void drawShortcuts()
 
 function openBatch(query: string): void {
@@ -294,7 +294,6 @@ function showError(error: CaptureError): void {
   idle.hidden = true
   capturing.hidden = true
   errorPanel.hidden = false
-  // The head already carries the "Nothing leaves this browser" reassurance, so it is not repeated.
   errorMessage.textContent = error.message
   // Telling someone to turn on a toggle without taking them to it leaves them hunting through
   // chrome://extensions for their own extension.

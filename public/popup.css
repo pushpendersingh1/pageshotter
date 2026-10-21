@@ -9,13 +9,15 @@
 
 /*
  * One spacing step, `--gap`, separates every block in the window, and the head and foot share one
- * inset, `--edge`, so the two bars frame the controls evenly. The foot's buttons carry most of that
- * inset as their own padding, which gives them a hit area the full height of the bar.
+ * vertical inset, `--edge`, so the two bars frame the controls evenly. The foot's buttons carry most
+ * of that inset as their own padding, which gives them a hit area the full height of the bar.
+ *
+ * 350px rather than the 360px the two-line buttons needed: every label is one short line now.
  */
 body {
   --gap: 8px;
   --edge: 14px;
-  width: 360px;
+  width: 350px;
   background: var(--surface);
   color: var(--ink);
 }
@@ -26,22 +28,27 @@ body {
 .lockup { display: block; width: 128px; height: auto; color: var(--ink); }
 
 /*
- * The privacy claim, kept quiet on purpose: it is a standing fact about the product, not a thing
- * that just happened, and a reassurance that shouts is read as a defence. No green dot, because
- * section 5 allows no second accent hue, and a dot would imply a live status being checked.
+ * One button rather than three, because two of the states are rarely wanted and a segmented control
+ * would spend a third of the head on a preference. The icon names the state it is *in*; the label
+ * names the state it will move to, which is what a title on a cycling control has to say.
  */
-.local {
+.theme {
   margin-left: auto;
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 7px;
-  font: 500 11px/1 var(--ui);
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
   color: var(--ink-2);
+  background: var(--surface-2);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 8px;
+  transition: color 150ms ease, border-color 150ms ease;
 }
-.local .icon { width: 12px; height: 12px; }
+.theme:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.theme .icon { width: 14px; height: 14px; }
 
 /*
  * Mono, uppercase and tracked out: an eyebrow names the region below it and is never read as a
@@ -88,7 +95,7 @@ body {
   appearance: none;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   width: 100%;
   min-height: 38px;
   padding: 0 12px;
@@ -107,7 +114,8 @@ body {
 
 .primary {
   min-height: 44px;
-  padding: 0 14px;
+  /* Clear of the viewfinder corners, which sit 8px in and are 11px across. */
+  padding: 0 22px;
   color: var(--on-accent);
   /*
    * The brand red, not the deepened one: this button is where the product shows its own colour.
@@ -135,7 +143,7 @@ body {
 .row {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   width: 100%;
   padding: 9px 12px;
   text-align: left;
@@ -151,12 +159,6 @@ body {
 .row:hover .icon { color: var(--accent); }
 
 /* ---------- viewfinder: the primary action is being aimed ---------- */
-
-/*
- * The capture panel below still draws these corners. The `.primary .frame` rules are idle while the
- * one-line Full page button has no `.frame` of its own (see the comment in popup.html); they are
- * kept so restoring that one line of markup restores the gesture exactly.
- */
 
 .frame { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
 .frame i {
@@ -224,13 +226,12 @@ body {
 /* ---------- shortcut chips ---------- */
 
 /*
- * Mono, because a key binding is a machine fact and not prose. Plain text with no box, so it reads
- * as a property of the button rather than a second button -- although it is one: it opens the
- * browser's shortcut page, so it keeps its own padding as a hit area and its own focus ring.
+ * Mono, because a key binding is a machine fact and not prose. An unassigned binding is drawn as a
+ * dashed accent outline rather than hidden: the route to the browser's shortcut page is the whole
+ * point of the chip, and a shortcut assigned automatically is exactly the kind that collides with
+ * another extension's, so the route stays offered either way.
  *
- * An unassigned binding reads "Set" in the accent rather than disappearing: the route to the
- * shortcut page is the whole point of the chip, and a shortcut assigned automatically is exactly the
- * kind that collides with another extension's, so the route stays offered either way.
+ * Centred on the button's one line rather than pinned to its top, which suited the two-line cards.
  */
 .kbd {
   position: absolute;
@@ -240,23 +241,24 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 4px;
-  border: 0;
+  padding: 4px 5px;
+  border: 1px solid transparent;
   border-radius: 6px;
-  font: 500 11px/1 var(--mono);
+  font: 600 10.5px/1 var(--mono);
   letter-spacing: 0.02em;
   white-space: nowrap;
-  background: none;
-  color: var(--on-accent-2);
+  background: var(--on-accent-wash);
+  color: var(--on-accent);
 }
-.slot .primary + .kbd { right: 10px; }
-.slot .cell + .kbd { right: 8px; color: var(--ink-2); }
-/* The modifiers are drawn, not typed: at this size the Mac glyphs are unreadable in a UI face. */
+.slot .primary + .kbd { right: 22px; }
+.slot .cell + .kbd { right: 6px; background: var(--surface); border-color: var(--line); color: var(--ink-2); }
+/* The modifiers are drawn, not typed: at 10.5px the Mac glyphs are unreadable in a UI face, and
+ * the chip is already the box, so each key sits inside it rather than in a box of its own. */
 .chip-glyph { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
-.slot .primary + .kbd:hover { color: var(--on-accent); }
-.slot .cell + .kbd:hover { color: var(--accent); }
-.kbd.unset { text-decoration: underline dashed; text-underline-offset: 3px; color: var(--on-accent); }
-.slot .cell + .kbd.unset { color: var(--accent); }
+.kbd:hover { filter: brightness(1.1); }
+.slot .cell + .kbd:hover { border-color: var(--accent); color: var(--accent); filter: none; }
+.kbd.unset { border-style: dashed; border-color: var(--on-accent-line); }
+.slot .cell + .kbd.unset { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 
 /* ---------- capture in progress ---------- */
 
@@ -390,14 +392,15 @@ body {
 /* ---------- foot ---------- */
 
 /*
- * Two destinations, one at each end. The bar's own padding plus each button's equals `--edge` and the
- * head's 16px, so the labels sit exactly as far from the window edges as the logo and badge do.
+ * Two destinations, one at each end. Vertically, the bar's padding plus each button's equals
+ * `--edge`, the head's inset. Horizontally, 20px plus the button's 8px lines History's icon up with
+ * the icons of every row above it, and Settings' label with the chevrons.
  */
 .foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(var(--edge) - 8px) 8px;
+  padding: calc(var(--edge) - 8px) 20px;
   border-top: 1px solid var(--line);
 }
 .foot button {
