@@ -393,9 +393,9 @@ body {
 /* ---------- foot ---------- */
 
 /*
- * Two destinations, one at each end. Vertically, the bar's padding plus each button's equals
- * `--edge`, the head's inset. Horizontally, 20px plus the button's 8px lines History's icon up with
- * the icons of every row above it, and Settings' label with the chevrons.
+ * Where screenshots live on the left, the two destinations on the right. Vertically, the bar's
+ * padding plus each button's equals `--edge`, the head's inset. Horizontally, 20px plus 8px lines the
+ * dot up with the icons of every row above it, and Settings' label with the chevrons.
  */
 .foot {
   display: flex;
@@ -404,6 +404,17 @@ body {
   padding: calc(var(--edge) - 8px) 20px;
   border-top: 1px solid var(--line);
 }
+.device { margin: 0 0 0 8px; font: 400 12px/1 var(--ui); color: var(--ink-2); }
+/* Green, as on the full pages: it reports a fact, it is not brand or state. */
+.device .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #22a06b;
+}
+.links { display: flex; gap: 2px; }
 .foot button {
   display: flex;
   align-items: center;
