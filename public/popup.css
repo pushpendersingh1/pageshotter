@@ -347,6 +347,11 @@ body {
 .panel-status { font-size: 11.5px; color: var(--ink-2); }
 /* A page title can be any length; the panel is not allowed to grow with it. */
 #batch-run-status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* `.quiet` pushes itself to the far end; beside Stop, Skip only needs to sit next to it. */
+#batch-run-status + .quiet { margin-left: 0; }
+#batch-running .quiet + .quiet { margin-left: -4px; }
+.quiet:disabled { opacity: 0.45; cursor: default; }
+.quiet:disabled:hover { border-color: var(--line); color: var(--ink); }
 .panel-status .dim { font: 500 11px/1 var(--mono); font-variant-numeric: tabular-nums; }
 /* A middot only when there is something to separate, so an empty estimate leaves no dangling dot. */
 .panel-status .dim:not(:empty)::before { content: " · "; }

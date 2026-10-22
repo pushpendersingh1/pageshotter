@@ -12,7 +12,7 @@ import { saveCaptureToHistory } from '../result/history-io'
 import { createPdfBlob } from '../result/pdf-export'
 import { buildTiledImage, encodeImage } from '../result/stitcher'
 import { takeHandoff, type BatchHandoff } from './batch-handoff'
-import { BATCH_STOP_KEY, clearStatus, writeStatus } from './batch-status'
+import { BATCH_SKIP_KEY, BATCH_STOP_KEY, clearStatus, readSkip, writeStatus } from './batch-status'
 import {
   BATCH_PERMISSIONS,
   LOAD_TIMEOUT_CHOICES,
@@ -102,7 +102,10 @@ interface Run {
 /** A reason to end the whole batch rather than mark one page failed. */
 class BatchAbort extends Error {}
 
-/** Stop was pressed: whatever was waiting gives up, and the page in hand is not saved. */
+/**
+ * Stop or Skip was pressed: whatever was waiting gives up, and the page in hand is not saved. Which
+ * one decides only whether the batch then carries on.
+ */
 class Stopped extends Error {}
 
 /** The tab a page was in went away while it waited its turn or loaded. */
@@ -122,6 +125,10 @@ let rows: Row[] = []
 let currentRun: Run | undefined
 let running = false
 let stopRequested = false
+/** Skip was pressed for the page in hand. Cleared as each page starts, so it never reaches the next. */
+let skipRequested = false
+/** The page being worked on, so a skip can be checked against the page it was meant for. */
+let currentRow: Row | undefined
 let settingsFormat: ExportFormat = 'png'
 let source: BatchSource = batchSource(location.search)
 /** The tab the current page is loading or being captured in, and its capture once started. */
@@ -247,6 +254,8 @@ async function initialise(): Promise<void> {
   // Stop pressed in the popup, which is open over the page being captured rather than over this one.
   window.addEventListener('storage', (event) => {
     if (event.key === BATCH_STOP_KEY && event.newValue !== null && running && !stopRequested) stop()
+    // Pressed against a page that has since finished, it is ignored rather than spent on the next one.
+    if (event.key === BATCH_SKIP_KEY && readSkip(event.newValue) === currentRow?.position) skip()
   })
 
   drawSource()
@@ -550,10 +559,27 @@ function stop(): void {
   stopRequested = true
   stopButton.disabled = true
   publishProgress()
+  interruptCurrent()
+}
+
+/** Gives up on the page in hand and goes on to the next one. */
+function skip(): void {
+  if (!running || stopRequested || currentRow === undefined || skipRequested) return
+  skipRequested = true
+  publishProgress()
+  interruptCurrent()
+}
+
+function interruptCurrent(): void {
   for (const wake of loadWaiters) wake()
   if (currentJobId !== undefined) {
     void chrome.runtime.sendMessage({ type: 'CANCEL_CAPTURE', jobId: currentJobId } satisfies RuntimeRequest).catch(() => undefined)
   }
+}
+
+/** Whether the page in hand should give up: the batch is stopping, or this page was skipped. */
+function interrupted(): boolean {
+  return stopRequested || skipRequested
 }
 
 /** Shown only while someone is looking at this tab mid-batch, which is exactly when it is true. */
@@ -651,20 +677,22 @@ async function runBatch(selected: Row[]): Promise<void> {
  * Returns the download's id, so the folder can be shown at the end.
  */
 async function captureRow(row: Row, run: Run, own: chrome.tabs.Tab): Promise<number | undefined> {
+  skipRequested = false
+  currentRow = row
   setRowState(row, 'loading', row.tabId === undefined ? 'Loading' : 'Switching to it')
   try {
     const { tabId, loaded } = row.tabId === undefined ? await openPage(row, run, own) : await showTab(row.tabId, run)
     if (run.options.renderWaitMs > 0) {
       setRowState(row, 'rendering', 'Letting it render')
-      await sleepUnlessStopped(run.options.renderWaitMs)
+      await sleepUnlessInterrupted(run.options.renderWaitMs)
     }
     if (closedTabs.has(tabId)) throw new TabClosed()
 
     setRowState(row, 'capturing', 'Capturing')
     const job = await captureInWorker(tabId, run.options.mode, row.tabId !== undefined)
     // A capture stopped partway is kept by the worker as a partial, which is right for a single
-    // capture and wrong here: Stop in a batch means "not this one either".
-    if (stopRequested) {
+    // capture and wrong here: Stop and Skip in a batch both mean "not this one either".
+    if (interrupted()) {
       await deleteCapture(job.id).catch(() => undefined)
       throw new Stopped()
     }
@@ -684,14 +712,16 @@ async function captureRow(row: Row, run: Run, own: chrome.tabs.Tab): Promise<num
       setRowState(row, 'failed', abort.message)
       throw abort
     }
-    if (error instanceof Stopped || (stopRequested && error instanceof CaptureFailure)) {
-      setRowState(row, 'skipped', 'Not captured: stopped')
+    if (error instanceof Stopped || (interrupted() && error instanceof CaptureFailure)) {
+      setRowState(row, 'skipped', stopRequested ? 'Not captured: stopped' : 'Skipped')
       return undefined
     }
     setRowState(row, 'failed', error instanceof Error ? error.message : String(error))
     return undefined
   } finally {
     currentJobId = undefined
+    currentRow = undefined
+    skipRequested = false
   }
 }
 
@@ -749,7 +779,7 @@ function waitForLoad(tabId: number, timeoutMs: number, ready: () => boolean | Pr
       settle()
     }
     function check(): void {
-      if (stopRequested) finish(() => reject(new Stopped()))
+      if (interrupted()) finish(() => reject(new Stopped()))
       else if (closedTabs.has(tabId)) finish(() => reject(new TabClosed()))
       else {
         void Promise.resolve(ready()).then((isReady) => {
@@ -763,17 +793,17 @@ function waitForLoad(tabId: number, timeoutMs: number, ready: () => boolean | Pr
   })
 }
 /** The render wait, cut short by Stop. A single timer, so a background tab's throttling barely touches it. */
-function sleepUnlessStopped(ms: number): Promise<void> {
+function sleepUnlessInterrupted(ms: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const finish = (): void => {
       loadWaiters.delete(onWake)
       window.clearTimeout(timer)
-      if (stopRequested) reject(new Stopped())
+      if (interrupted()) reject(new Stopped())
       else resolve()
     }
-    // Woken by every tab update as well as by Stop, so only Stop ends it early.
+    // Woken by every tab update as well as by Stop and Skip, so only those two end it early.
     const onWake = (): void => {
-      if (stopRequested) finish()
+      if (interrupted()) finish()
     }
     const timer = window.setTimeout(finish, ms)
     loadWaiters.add(onWake)
@@ -786,8 +816,8 @@ async function captureInWorker(tabId: number, mode: BatchMode, openTab: boolean)
   if (!started.ok) throw new CaptureFailure(started.error.code, failureText(started.error.code, started.error.message, openTab))
   const jobId = started.jobId as string
   currentJobId = jobId
-  // Stop may have been pressed while the request was in flight, before there was a job to cancel.
-  if (stopRequested) stop()
+  // Stop or Skip may have been pressed while the request was in flight, before there was a job to cancel.
+  if (interrupted()) interruptCurrent()
   for (;;) {
     await settledOrBackstop(jobId)
     const response = (await chrome.runtime.sendMessage({ type: 'GET_JOB', jobId } satisfies RuntimeRequest)) as RuntimeResponse
@@ -949,6 +979,9 @@ function publishProgress(): void {
   if (ownTabId === undefined || runRows.length === 0) return
   const done = runRows.filter((row) => row.state === 'saved' || row.state === 'failed' || row.state === 'skipped').length
   const current = runRows.find((row) => isActive(row.state))
+  // Offered only while there is a page to skip, it has not been skipped already, and it is not
+  // already being saved: by then there is nothing left to save time on.
+  const skippable = current !== undefined && current.state !== 'saving' && !skipRequested && !stopRequested
   try {
     writeStatus(localStorage, {
       tabId: ownTabId,
@@ -956,6 +989,7 @@ function publishProgress(): void {
       total: runRows.length,
       done,
       current: current === undefined ? '' : current.title || current.url,
+      currentPosition: skippable ? current.position : 0,
       stopping: stopRequested,
     })
   } catch {

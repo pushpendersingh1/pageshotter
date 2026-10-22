@@ -148,7 +148,11 @@
 
             <div class="panel-foot">
               <span class="panel-status" id="batch-run-status"></span>
-              <button id="batch-stop" class="quiet" type="button"><span class="stop-mark" aria-hidden="true"></span>Stop</button>
+              <!-- This page only; Stop ends the batch. -->
+              <button id="batch-skip" class="quiet" type="button" title="Skip this page and go on to the next">
+                <svg class="icon" data-icon="player-skip-forward" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Skip
+              </button>
+              <button id="batch-stop" class="quiet" type="button" title="Stop the whole batch"><span class="stop-mark" aria-hidden="true"></span>Stop</button>
             </div>
           </div>
         </div>

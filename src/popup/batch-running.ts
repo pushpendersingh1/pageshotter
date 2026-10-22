@@ -1,4 +1,4 @@
-import { BATCH_STATUS_KEY, clearStatus, readStatus, requestStop, type BatchStatus } from '../batch/batch-status'
+import { BATCH_STATUS_KEY, clearStatus, readStatus, requestSkip, requestStop, type BatchStatus } from '../batch/batch-status'
 import { filledSegments, segmentCount } from './progress-bar'
 
 /*
@@ -15,9 +15,24 @@ const totalCount = requiredElement<HTMLElement>('batch-run-total')
 const segs = requiredElement<HTMLElement>('batch-segs')
 const status = requiredElement<HTMLElement>('batch-run-status')
 const stopButton = requiredElement<HTMLButtonElement>('batch-stop')
+const skipButton = requiredElement<HTMLButtonElement>('batch-skip')
+/** The page Skip would skip, as last reported; `0` while there is none. */
+let skippable = 0
+
+skipButton.addEventListener('click', () => {
+  if (skippable === 0) return
+  skipButton.disabled = true
+  status.textContent = 'Skipping'
+  try {
+    requestSkip(localStorage, skippable, Date.now())
+  } catch {
+    skipButton.disabled = false
+  }
+})
 
 stopButton.addEventListener('click', () => {
   stopButton.disabled = true
+  skipButton.disabled = true
   status.textContent = 'Stopping'
   try {
     requestStop(localStorage, Date.now())
@@ -84,6 +99,8 @@ function draw(current: BatchStatus): void {
   segs.setAttribute('aria-valuenow', String(current.done))
 
   stopButton.disabled = current.stopping
+  skippable = current.currentPosition
+  skipButton.disabled = current.stopping || skippable === 0
   status.textContent = current.stopping ? 'Stopping' : current.current === '' ? 'Starting the next page' : current.current
   status.title = current.current
 }
