@@ -9,6 +9,7 @@ describe('manifestFor', () => {
   it('hands Chrome and Edge the manifest untouched, so their packages stay byte-identical', () => {
     expect(manifestFor('chrome', manifest)).toBe(manifest)
     expect(manifestFor('edge', manifest)).toBe(manifest)
+    expect(manifestFor('opera', manifest)).toBe(manifest)
   })
 
   it('gives Firefox an event page, its permanent ID and a no-collection declaration', () => {
@@ -40,5 +41,13 @@ describe('buildTarget', () => {
     expect(firefox.zip).toMatch(/pageshotter-extension-firefox\.zip$/)
     expect(firefox.esbuildTarget).toBe('firefox153')
     expect(buildTarget(['node', 'build.mjs']).esbuildTarget).toBe('chrome120')
+  })
+
+  /* Opera's reviewers read the code itself, and turn a minified bundle away. */
+  it('leaves only the Opera build unminified', () => {
+    expect(buildTarget(['node', 'build.mjs', '--target', 'opera'])).toMatchObject({ minify: false, esbuildTarget: 'chrome120' })
+    for (const target of ['chrome', 'edge', 'firefox']) {
+      expect(buildTarget(['node', 'build.mjs', '--target', target]).minify).toBe(true)
+    }
   })
 })

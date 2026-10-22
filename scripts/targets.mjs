@@ -25,6 +25,8 @@ export function buildTarget(argv = process.argv) {
     outdir: path.join(root, `dist${suffix}`),
     zip: path.join(root, `pageshotter-extension${suffix}.zip`),
     esbuildTarget: target === 'firefox' ? `firefox${FIREFOX_MIN}` : 'chrome120',
+    // Opera's review reads our code and refuses it minified; third-party libraries are exempt.
+    minify: target !== 'opera',
   }
 }
 
@@ -35,7 +37,7 @@ export function buildTarget(argv = process.argv) {
 const FIREFOX_MIN = 153
 
 /**
- * `public/manifest.json` is Chrome's, and Edge takes it as it is. Firefox has no MV3 service worker,
+ * `public/manifest.json` is Chrome's, and Edge and Opera take it as it is. Firefox has no MV3 service worker,
  * so the same bundle runs as an event page there, and AMO requires an ID and a data-collection
  * declaration. Chrome-only keys are dropped rather than left for Firefox to warn about.
  */

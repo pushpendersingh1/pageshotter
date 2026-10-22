@@ -28,6 +28,9 @@ const RESTRICTED_PAGE_PATTERNS = [
   // Edge's equivalents. Matching raw error text, so every build can carry every browser's.
   'edge://',
   'microsoftedge.microsoft.com',
+  // Opera's.
+  'opera://',
+  'addons.opera.com',
   // Firefox's. Its refusal does not name the page, so `isRestrictedPageUrl` below carries the rest.
   'missing host permission for the tab',
   'moz-extension://',
@@ -52,6 +55,7 @@ const RESTRICTED_URL_PREFIXES = [
   'chrome://',
   'chrome-extension://',
   'edge://',
+  'opera://',
   'about:',
   'moz-extension://',
   'view-source:',
@@ -59,6 +63,7 @@ const RESTRICTED_URL_PREFIXES = [
   'https://chromewebstore.google.com/',
   'https://chrome.google.com/webstore',
   'https://microsoftedge.microsoft.com/',
+  'https://addons.opera.com/',
   'https://addons.mozilla.org/',
 ] as const
 

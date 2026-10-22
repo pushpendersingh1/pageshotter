@@ -40,5 +40,19 @@
       "maxDimension": 65535,
       "maxPixels": 536608768
     }
+  },
+  "opera": {
+    "name": "Opera",
+    "extensionsPage": "opera://extensions",
+    "storeName": "Opera add-ons",
+    "reviewUrl": null,
+    "pinHint": "Opera keeps new extensions behind the cube icon in the toolbar. Click it, then the pin beside PageShotter, to keep the button where you can reach it.",
+    "extensionsPageOpenable": true,
+    "detailsLabel": "Details",
+    "fileAccessRemedy": "Open opera://extensions, click Details on PageShotter, and turn on \"Allow access to file URLs\".",
+    "canvas": {
+      "maxDimension": 65535,
+      "maxPixels": 268435456
+    }
   }
 }

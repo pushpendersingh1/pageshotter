@@ -15,6 +15,8 @@ npm run dev        # rebuild dist/ on every change; add `-- --target edge` for d
 npm run package    # build + zip → pageshotter-extension.zip
 npm run package:edge # build + zip → pageshotter-extension-edge.zip
 npm run package:firefox # build + zip → pageshotter-extension-firefox.zip, plus -source.zip for AMO (clean tree only)
+npm run build:opera # esbuild → dist-opera/, our code unminified (load unpacked in Opera)
+npm run package:opera # build + zip → pageshotter-extension-opera.zip
 npm run fixtures   # serve tests/fixtures on http://localhost:4173
 ```
 
@@ -133,9 +135,9 @@ only inside a marker, `<span data-browser="name">Chrome</span>`, which the build
 `verify:pages` fails on a bare "Chrome" anywhere else in a page. Comments that explain how Chrome
 behaves stay as they are.
 
-- **The manifest is Chrome's**, and Edge ships it unchanged. Firefox's differences are applied by
-  `manifestFor` in `scripts/targets.mjs`: an event page instead of a service worker, the AMO ID, the
-  minimum version and the data-collection declaration. **A permission never differs between
+- **The manifest is Chrome's**, and Edge and Opera ship it unchanged. Firefox's differences are
+  applied by `manifestFor` in `scripts/targets.mjs`: an event page instead of a service worker, the
+  AMO ID, the minimum version and the data-collection declaration. **A permission never differs between
   browsers**; a test holds that.
 - **Firefox won't let an extension open `about:addons`.** Shortcuts go through
   `commands.openShortcutSettings()` (`openShortcutSettings` in `browser.ts`), and anything that
@@ -144,6 +146,9 @@ behaves stay as they are.
 - **Restricted pages are recognised by error text and, after a failure, by the tab's address**
   (`isRestrictedPageUrl`). Firefox words every refusal the same way, so its text alone can't tell a
   forbidden page from a fault.
+- **Opera's build is not minified.** Its reviewers read the extension's own code and refuse it
+  minified (third-party libraries are exempt), so `buildTarget` turns minification off for `opera`
+  alone. Chrome, Edge and Firefox stay minified.
 - `npx web-ext lint --source-dir dist-firefox` should report nothing. It is run ad hoc rather than
   added as a dependency. Build DOM from nodes, not `innerHTML`; AMO review reads every assignment.
 
