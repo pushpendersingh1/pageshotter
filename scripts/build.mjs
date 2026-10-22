@@ -9,7 +9,7 @@ import { buildTarget, manifestFor } from './targets.mjs'
 const watch = process.argv.includes('--watch')
 const root = path.resolve(import.meta.dirname, '..')
 const publicDir = path.join(root, 'public')
-const { target, profile, outdir, esbuildTarget } = buildTarget()
+const { target, profile, outdir, esbuildTarget, minify } = buildTarget()
 
 await rm(outdir, { recursive: true, force: true })
 await mkdir(outdir, { recursive: true })
@@ -90,7 +90,7 @@ const options = {
   target: esbuildTarget,
   define: { __BROWSER_PROFILE__: JSON.stringify(profile) },
   sourcemap: watch,
-  minify: !watch,
+  minify: minify && !watch,
   logLevel: 'info',
 }
 

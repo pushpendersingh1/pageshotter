@@ -131,12 +131,14 @@ describe('isRestrictedPageUrl', () => {
     for (const url of [
       'chrome://settings',
       'edge://settings',
+      'opera://settings',
       'about:preferences',
       'about:blank',
       'moz-extension://abc/popup.html',
       'https://addons.mozilla.org/en-US/firefox/',
       'https://microsoftedge.microsoft.com/addons/detail/x',
       'https://chromewebstore.google.com/detail/x',
+      'https://addons.opera.com/en/extensions/details/x/',
     ]) {
       expect(isRestrictedPageUrl(url), url).toBe(true)
     }
