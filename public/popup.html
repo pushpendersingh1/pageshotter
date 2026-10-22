@@ -127,6 +127,31 @@
             </div>
           </div>
         </div>
+
+        <!--
+          A batch, run by the Batch page from a tab in the background. Shown in place of the controls
+          whenever the popup opens while one is going, so it can be followed and stopped from the
+          page being captured. See batch-running.ts.
+        -->
+        <div id="batch-running" hidden aria-live="polite">
+          <span class="eyebrow">Batch capture</span>
+          <div class="panel">
+            <span class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <span class="scanline" aria-hidden="true"></span>
+
+            <div class="panel-head">
+              <span class="panel-title" id="batch-run-title">All tabs</span>
+              <span class="panel-count"><b id="batch-run-done">0</b> / <span id="batch-run-total">0</span> pages</span>
+            </div>
+
+            <div class="segs" id="batch-segs" role="progressbar" aria-label="Batch progress"></div>
+
+            <div class="panel-foot">
+              <span class="panel-status" id="batch-run-status"></span>
+              <button id="batch-stop" class="quiet" type="button"><span class="stop-mark" aria-hidden="true"></span>Stop</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <footer class="foot">

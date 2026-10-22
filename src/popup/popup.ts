@@ -1,5 +1,6 @@
 import { extensionDetailsPage, openShortcutSettings } from '../shared/browser'
 import { openBatchPanel } from './batch-panel'
+import { showRunningBatch } from './batch-running'
 import { filledSegments, segmentCount } from './progress-bar'
 import { captureEtaLabel } from '../shared/capture-eta'
 import { wireThemeButton } from '../shared/theme'
@@ -73,6 +74,7 @@ requiredElement<HTMLButtonElement>('open-settings').addEventListener('click', ()
 // First, and before anything else is drawn: a stored palette that arrives late is a visible flash.
 void wireThemeButton(themeButton, document.documentElement)
 void drawShortcuts()
+showRunningBatch()
 
 function openHistory(): void {
   void chrome.tabs.create({ url: chrome.runtime.getURL('history.html') })

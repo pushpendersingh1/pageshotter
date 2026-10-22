@@ -270,7 +270,7 @@ body {
  * exactly that, taking the popup from 360px to 423px mid-capture. Measured: without this, the
  * clipping on the bar itself has no effect at all, because the overflow never reaches it.
  */
-#capturing, #error { display: flex; flex-direction: column; height: 100%; min-width: 0; }
+#capturing, #error, #batch-running { display: flex; flex-direction: column; height: 100%; min-width: 0; }
 /*
  * No `min-height` on either. The 186px one that used to be here was reserving room for the segment
  * bar and section count that appear a second into a capture -- but `.segs.unmeasured` already holds
@@ -278,7 +278,7 @@ body {
  * ever have applied to. On `#error` it was pure dead space: the panel ran 53px below its own last
  * line, because a shape held open for something that is not coming is just whitespace.
  */
-#capturing > .eyebrow, #error > .eyebrow { margin: 4px 0 12px; }
+#capturing > .eyebrow, #error > .eyebrow, #batch-running > .eyebrow { margin: 4px 0 12px; }
 
 .panel {
   position: relative;
@@ -345,6 +345,8 @@ body {
 
 .panel-foot { display: flex; align-items: center; gap: 10px; }
 .panel-status { font-size: 11.5px; color: var(--ink-2); }
+/* A page title can be any length; the panel is not allowed to grow with it. */
+#batch-run-status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-status .dim { font: 500 11px/1 var(--mono); font-variant-numeric: tabular-nums; }
 /* A middot only when there is something to separate, so an empty estimate leaves no dangling dot. */
 .panel-status .dim:not(:empty)::before { content: " · "; }
@@ -431,9 +433,7 @@ body {
 
 /* ---------- batch panel ---------- */
 
-.sub:not([hidden]) { display: flex; flex-direction: column; }
-/* Several parts set their own `display`, which would otherwise outrank the attribute. */
-.sub [hidden] { display: none !important; }
+.sub { display: flex; flex-direction: column; }
 
 /*
  * The panel's header takes the place of the logo and theme button, at the same inset, so the window

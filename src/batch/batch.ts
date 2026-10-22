@@ -12,6 +12,7 @@ import { saveCaptureToHistory } from '../result/history-io'
 import { createPdfBlob } from '../result/pdf-export'
 import { buildTiledImage, encodeImage } from '../result/stitcher'
 import { takeHandoff, type BatchHandoff } from './batch-handoff'
+import { BATCH_STOP_KEY, clearStatus, writeStatus } from './batch-status'
 import {
   BATCH_PERMISSIONS,
   LOAD_TIMEOUT_CHOICES,
@@ -79,6 +80,7 @@ type RowState = 'waiting' | 'loading' | 'rendering' | 'capturing' | 'saving' | '
 
 interface Row {
   url: string
+  title: string
   /** Set for a tab that was already open: it is captured where it is, and never closed. */
   tabId?: number
   position: number
@@ -127,6 +129,9 @@ let captureTabId: number | undefined
 /** The tab this page opened for an address, which it closes again. Never an open tab it was given. */
 let openedTabId: number | undefined
 let currentJobId: string | undefined
+/** The rows the running batch was started with, and this page's own tab: what the popup is told. */
+let runRows: Row[] = []
+let ownTabId: number | undefined
 /** What the start dialog will run once confirmed: a fresh list, or rows being retried. */
 let pendingRows: Row[] | 'new' = 'new'
 /** Every tab listed, in window order, and whether each one is ticked -- kept across redraws. */
@@ -234,6 +239,14 @@ async function initialise(): Promise<void> {
   // is what matters.
   window.addEventListener('beforeunload', (event) => {
     if (running) event.preventDefault()
+  })
+  // Gone is gone, so the popup and the toolbar must stop reporting a batch that is no longer running.
+  window.addEventListener('pagehide', () => {
+    if (running) endProgress()
+  })
+  // Stop pressed in the popup, which is open over the page being captured rather than over this one.
+  window.addEventListener('storage', (event) => {
+    if (event.key === BATCH_STOP_KEY && event.newValue !== null && running && !stopRequested) stop()
   })
 
   drawSource()
@@ -536,6 +549,7 @@ function requestAccessThenRun(selected: Row[]): void {
 function stop(): void {
   stopRequested = true
   stopButton.disabled = true
+  publishProgress()
   for (const wake of loadWaiters) wake()
   if (currentJobId !== undefined) {
     void chrome.runtime.sendMessage({ type: 'CANCEL_CAPTURE', jobId: currentJobId } satisfies RuntimeRequest).catch(() => undefined)
@@ -588,6 +602,9 @@ async function runBatch(selected: Row[]): Promise<void> {
   let lastDownloadId: number | undefined
   let abortMessage: string | undefined
   const own = await chrome.tabs.getCurrent().catch(() => undefined)
+  runRows = selected
+  ownTabId = own?.id
+  publishProgress()
   try {
     if (own?.id === undefined) throw new BatchAbort('This page could not find its own tab.')
     for (const [index, row] of selected.entries()) {
@@ -607,6 +624,7 @@ async function runBatch(selected: Row[]): Promise<void> {
       if (row.state === 'waiting') setRowState(row, 'skipped', 'Not captured: the batch stopped first')
     }
     running = false
+    endProgress()
     setRunning(false)
     document.title = PAGE_TITLE
     backButton.hidden = true
@@ -902,7 +920,7 @@ function createRow(url: string, title: string, position: number, tabId?: number)
   retry.textContent = 'Retry'
   retry.hidden = true
   element.append(number, page, retry)
-  const row: Row = { url, tabId, position, state: 'waiting', element, stateText, retry }
+  const row: Row = { url, title, tabId, position, state: 'waiting', element, stateText, retry }
   retry.addEventListener('click', () => {
     if (!running) askToStart([row])
   })
@@ -913,9 +931,49 @@ function createRow(url: string, title: string, position: number, tabId?: number)
 function setRowState(row: Row, state: RowState, text: string): void {
   row.state = state
   row.element.dataset.state = state
-  row.element.dataset.active = String(state === 'loading' || state === 'rendering' || state === 'capturing' || state === 'saving')
+  row.element.dataset.active = String(isActive(state))
   row.stateText.textContent = text
   row.retry.hidden = running || (state !== 'failed' && state !== 'skipped')
+  if (running) publishProgress()
+}
+
+function isActive(state: RowState): boolean {
+  return state === 'loading' || state === 'rendering' || state === 'capturing' || state === 'saving'
+}
+
+/**
+ * Where the batch has got to, for the popup and the toolbar icon. Both are looked at from the page
+ * being captured, which is the one place this page cannot be seen from.
+ */
+function publishProgress(): void {
+  if (ownTabId === undefined || runRows.length === 0) return
+  const done = runRows.filter((row) => row.state === 'saved' || row.state === 'failed' || row.state === 'skipped').length
+  const current = runRows.find((row) => isActive(row.state))
+  try {
+    writeStatus(localStorage, {
+      tabId: ownTabId,
+      source,
+      total: runRows.length,
+      done,
+      current: current === undefined ? '' : current.title || current.url,
+      stopping: stopRequested,
+    })
+  } catch {
+    // The popup then shows its usual buttons; the batch, and this page's own list, carry on.
+  }
+  void chrome.runtime
+    .sendMessage({ type: 'BATCH_PROGRESS', done, total: runRows.length } satisfies RuntimeRequest)
+    .catch(() => undefined)
+}
+
+function endProgress(): void {
+  runRows = []
+  try {
+    clearStatus(localStorage)
+  } catch {
+    // Nothing was written, or nothing can be: either way nothing is left to report.
+  }
+  void chrome.runtime.sendMessage({ type: 'BATCH_FINISHED' } satisfies RuntimeRequest).catch(() => undefined)
 }
 
 function setRunning(on: boolean): void {
