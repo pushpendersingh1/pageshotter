@@ -95,7 +95,7 @@ body {
   appearance: none;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
   min-height: 38px;
   padding: 0 12px;
@@ -143,7 +143,7 @@ body {
 .row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
   padding: 9px 12px;
   text-align: left;
@@ -226,12 +226,13 @@ body {
 /* ---------- shortcut chips ---------- */
 
 /*
- * Mono, because a key binding is a machine fact and not prose. An unassigned binding is drawn as a
- * dashed accent outline rather than hidden: the route to the browser's shortcut page is the whole
- * point of the chip, and a shortcut assigned automatically is exactly the kind that collides with
- * another extension's, so the route stays offered either way.
+ * Mono, because a key binding is a machine fact and not prose. Plain text with no box, so it reads
+ * as a property of the button rather than a second button -- although it is one: it opens the
+ * browser's shortcut page, so it keeps its own padding as a hit area and its own focus ring.
  *
- * Centred on the button's one line rather than pinned to its top, which suited the two-line cards.
+ * An unassigned binding reads "Set" in the accent rather than disappearing: the route to the
+ * shortcut page is the whole point of the chip, and a shortcut assigned automatically is exactly the
+ * kind that collides with another extension's, so the route stays offered either way.
  */
 .kbd {
   position: absolute;
@@ -241,24 +242,24 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 4px 5px;
-  border: 1px solid transparent;
+  padding: 4px;
+  border: 0;
   border-radius: 6px;
-  font: 600 10.5px/1 var(--mono);
+  font: 500 11px/1 var(--mono);
   letter-spacing: 0.02em;
   white-space: nowrap;
-  background: var(--on-accent-wash);
-  color: var(--on-accent);
+  background: none;
+  color: var(--on-accent-2);
 }
+/* Clear of the viewfinder corners, like the icon at the other end. */
 .slot .primary + .kbd { right: 22px; }
-.slot .cell + .kbd { right: 6px; background: var(--surface); border-color: var(--line); color: var(--ink-2); }
-/* The modifiers are drawn, not typed: at 10.5px the Mac glyphs are unreadable in a UI face, and
- * the chip is already the box, so each key sits inside it rather than in a box of its own. */
+.slot .cell + .kbd { right: 8px; color: var(--ink-2); }
+/* The modifiers are drawn, not typed: at this size the Mac glyphs are unreadable in a UI face. */
 .chip-glyph { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
-.kbd:hover { filter: brightness(1.1); }
-.slot .cell + .kbd:hover { border-color: var(--accent); color: var(--accent); filter: none; }
-.kbd.unset { border-style: dashed; border-color: var(--on-accent-line); }
-.slot .cell + .kbd.unset { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.slot .primary + .kbd:hover { color: var(--on-accent); }
+.slot .cell + .kbd:hover { color: var(--accent); }
+.kbd.unset { text-decoration: underline dashed; text-underline-offset: 3px; color: var(--on-accent); }
+.slot .cell + .kbd.unset { color: var(--accent); }
 
 /* ---------- capture in progress ---------- */
 
