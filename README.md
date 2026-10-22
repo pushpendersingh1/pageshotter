@@ -37,11 +37,11 @@ nothing uploaded unless you send it.
 <sub>Firefox Add-ons<br />Firefox 153+ and Zen, on desktop</sub>
 </td>
 <td align="center" width="230">
-<a href="#build-and-load-it-yourself">
+<a href="https://microsoftedge.microsoft.com/addons/detail/pageshotter-full-page-s/modgmfnkjomhkmkmifijlglchbdcpddb">
 <img src=".github/assets/brands/edge.svg" alt="Edge" width="40" height="40" /><br />
-<strong>Edge</strong>
+<strong>Add to Edge</strong>
 </a><br />
-<sub>Edge Add-ons<br />listing in review</sub>
+<sub>Edge Add-ons<br />Edge 120+</sub>
 </td>
 </tr>
 </table>
