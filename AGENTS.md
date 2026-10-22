@@ -18,6 +18,11 @@ npm run package:firefox # build + zip → pageshotter-extension-firefox.zip, plu
 npm run fixtures   # serve tests/fixtures on http://localhost:4173
 ```
 
+`tsc` is TypeScript 7, installed as `@typescript/native`. The `typescript` name is Microsoft's
+`@typescript/typescript6` on purpose: TypeScript 7 ships no JavaScript compiler API yet, and
+typescript-eslint needs one. Once typescript-eslint supports TypeScript 7, `typescript` goes back to
+being TypeScript 7 and `@typescript/native` is removed.
+
 ## Engineering posture
 
 The default is the simplest solution that actually works. Simple means efficient, not careless.
