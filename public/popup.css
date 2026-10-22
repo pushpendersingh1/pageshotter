@@ -429,32 +429,18 @@ body {
 .foot button:hover { color: var(--ink); background: var(--surface-2); }
 .foot .icon { width: 15px; height: 15px; }
 
-/* ---------- views ---------- */
-
-/*
- * The capture controls and the batch panel share one grid cell, so a slide between them moves two
- * views that are both laid out, rather than swapping one for the other mid-frame. `overflow: hidden`
- * keeps the view on its way out from widening the popup window as it leaves.
- */
-.views { display: grid; overflow: hidden; }
-.views > .view { grid-area: 1 / 1; min-width: 0; }
-.in-right { animation: in-right 320ms cubic-bezier(0.2, 0.85, 0.25, 1); }
-.in-left { animation: in-left 320ms cubic-bezier(0.2, 0.85, 0.25, 1); }
-.out-left { animation: out-left 320ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards; pointer-events: none; }
-.out-right { animation: out-right 320ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards; pointer-events: none; }
-@keyframes in-right { from { transform: translateX(100%); } }
-@keyframes in-left { from { transform: translateX(-100%); } }
-@keyframes out-left { to { transform: translateX(-100%); } }
-@keyframes out-right { to { transform: translateX(100%); } }
-
 /* ---------- batch panel ---------- */
 
 .sub:not([hidden]) { display: flex; flex-direction: column; }
 /* Several parts set their own `display`, which would otherwise outrank the attribute. */
 .sub [hidden] { display: none !important; }
 
-.sub-head { display: flex; align-items: center; gap: 4px; padding: 0 16px 8px; }
-/* 8px less on the left, so the arrow's stroke lines up with the lockup above it. */
+/*
+ * The panel's header takes the place of the logo and theme button, at the same inset, so the window
+ * names the step it is on rather than the product.
+ */
+.sub-head { display: flex; align-items: center; gap: 4px; padding: var(--edge) 16px 12px; }
+/* 8px less on the left, so the arrow's stroke sits on the inset every row below starts at. */
 .back {
   display: grid;
   place-items: center;
@@ -469,8 +455,8 @@ body {
 }
 .back:hover { color: var(--ink); background: var(--surface-2); }
 .back .icon { width: 18px; height: 18px; }
-.sub-title { margin: 0; font: 600 14px/1.2 var(--ui); letter-spacing: -0.005em; color: var(--ink); }
-/* Focused only so a screen reader announces where the slide went; it is not a stop in the tab order. */
+.sub-title { margin: 0; font: 600 15px/1.2 var(--ui); letter-spacing: -0.005em; color: var(--ink); }
+/* Focused only so a screen reader announces which panel opened; it is not a stop in the tab order. */
 .sub-title:focus { outline: none; }
 
 .sub-body { display: grid; gap: 10px; padding: 0 16px var(--edge); }
@@ -490,7 +476,7 @@ body {
   border-radius: var(--r);
 }
 /* Opening the options takes its room from the list rather than pushing Start out of the window. */
-.sub:has(.more[open]) .tab-list { max-height: 124px; }
+.sub:has(.more[open]) .tab-list { max-height: 150px; }
 .tab-list li + li { border-top: 1px solid var(--line); }
 .tab-list label { display: flex; align-items: center; gap: 10px; padding: 7px 10px; cursor: pointer; }
 .tab-list label:has(input:disabled) { cursor: default; opacity: 0.6; }

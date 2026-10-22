@@ -49,8 +49,6 @@ const startLabel = requiredElement<HTMLSpanElement>('batch-start-label')
 
 const MODE_LABELS: Record<BatchMode, string> = { full: 'Full page', visible: 'Visible part' }
 const FORMAT_LABELS: Record<ExportFormat, string> = { png: 'PNG', jpeg: 'JPEG', webp: 'WebP', pdf: 'PDF' }
-const SLIDE_CLASSES = ['in-right', 'out-left', 'in-left', 'out-right']
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 
 interface TabEntry {
   id: number
@@ -100,38 +98,16 @@ export function openBatchPanel(chosen: BatchSource, from: HTMLElement): void {
   } else {
     void drawTabs()
   }
-  slide(home, panel, 'forward')
+  home.hidden = true
+  panel.hidden = false
   if (chosen === 'urls') urlsInput.focus()
   else title.focus()
 }
 
 function closeBatchPanel(): void {
-  slide(panel, home, 'back')
+  panel.hidden = true
+  home.hidden = false
   opener?.focus()
-}
-
-/**
- * The incoming view slides in from the side it lives on while the outgoing one leaves by the other,
- * like a page pushed onto a stack. Both share one grid cell, so for the length of the slide the
- * window is as tall as the taller of the two, and settles on the new one's height after.
- */
-function slide(from: HTMLElement, to: HTMLElement, direction: 'forward' | 'back'): void {
-  for (const view of [from, to]) view.classList.remove(...SLIDE_CLASSES)
-  to.hidden = false
-  if (reducedMotion.matches) {
-    from.hidden = true
-    return
-  }
-  from.classList.add(direction === 'forward' ? 'out-left' : 'out-right')
-  to.classList.add(direction === 'forward' ? 'in-right' : 'in-left')
-  to.addEventListener(
-    'animationend',
-    () => {
-      from.hidden = true
-      for (const view of [from, to]) view.classList.remove(...SLIDE_CLASSES)
-    },
-    { once: true },
-  )
 }
 
 async function drawTabs(): Promise<void> {
