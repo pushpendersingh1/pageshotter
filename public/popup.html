@@ -197,13 +197,13 @@
           <ul class="tab-list" id="tab-list" aria-label="Tabs in this window"></ul>
           <!--
             Without access a tab's title and address are unreadable, so there is nothing to list. The
-            request is made on the Batch page: a permission prompt opened from a popup can land behind
-            it, and the popup closes before the answer arrives.
+            request is made from here. Should the popup close while the prompt is open, the answer still
+            stands, and the list is there the next time All tabs is opened.
           -->
           <div class="access" id="tabs-access" hidden>
-            <p class="note">To list this window's tabs, PageShotter needs the access to all websites that batch capture uses. You allow it once, on the Batch page. Nothing is uploaded.</p>
+            <p class="note" id="tabs-access-note">To list this window's tabs, PageShotter needs access to all websites, which batch capture uses. You allow it once. Nothing is uploaded.</p>
             <button id="tabs-allow" class="quiet" type="button">
-              Continue on the Batch page
+              Allow access
               <svg class="icon" data-icon="arrow-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
             </button>
           </div>

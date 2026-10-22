@@ -18,9 +18,10 @@ import { getExportPreferences } from '../result/export-preferences'
 /*
  * The batch panel: All tabs and List of URLs, chosen inside the popup.
  *
- * Only the choosing happens here. Start hands the choice to the Batch page, which asks for access,
- * runs the batch and reports on it: a batch brings each page's tab to the front, and the browser
- * closes a popup the moment another tab does, taking any run inside it with it.
+ * Only the choosing happens here, and the access All tabs needs to list anything. Start hands the
+ * choice to the Batch page, which runs the batch and reports on it: a batch brings each page's tab to
+ * the front, and the browser closes a popup the moment another tab does, taking any run inside it
+ * with it.
  */
 
 const home = requiredElement<HTMLElement>('home')
@@ -34,6 +35,7 @@ const tabSummary = requiredElement<HTMLParagraphElement>('tab-summary')
 const tabsToggle = requiredElement<HTMLInputElement>('tabs-toggle')
 const tabsToggleLabel = requiredElement<HTMLSpanElement>('tabs-toggle-label')
 const tabsAccess = requiredElement<HTMLElement>('tabs-access')
+const tabsAccessNote = requiredElement<HTMLParagraphElement>('tabs-access-note')
 const urlsInput = requiredElement<HTMLTextAreaElement>('urls')
 const urlSummary = requiredElement<HTMLParagraphElement>('url-summary')
 const more = requiredElement<HTMLDetailsElement>('batch-more')
@@ -63,7 +65,7 @@ let settingsFormat: ExportFormat = 'png'
 const optionsReady = loadOptions()
 
 requiredElement<HTMLButtonElement>('batch-back').addEventListener('click', closeBatchPanel)
-requiredElement<HTMLButtonElement>('tabs-allow').addEventListener('click', () => void openBatchPage('tabs'))
+requiredElement<HTMLButtonElement>('tabs-allow').addEventListener('click', allowAccess)
 tabsToggle.addEventListener('change', () => {
   for (const entry of offeredTabs()) entry.checkbox.checked = tabsToggle.checked
   drawTabSummary()
@@ -149,6 +151,28 @@ async function drawTabs(): Promise<void> {
     tabEntries.push({ id: tab.id, checkbox })
   }
   drawTabSummary()
+}
+
+/**
+ * Asked for inside the click. Firefox honours `permissions.request` only within the click that asked
+ * for it, so nothing is awaited first. A browser that will not ask from a popup at all hands over to
+ * the Batch page, which asks from its own.
+ */
+function allowAccess(): void {
+  let request: Promise<boolean>
+  try {
+    request = chrome.permissions.request(BATCH_PERMISSIONS)
+  } catch {
+    void openBatchPage('tabs')
+    return
+  }
+  request.then(
+    (granted) => {
+      if (granted) void drawTabs()
+      else tabsAccessNote.textContent = "Without that access the tabs can't be listed. Nothing is uploaded either way."
+    },
+    () => void openBatchPage('tabs'),
+  )
 }
 
 function offeredTabs(): TabEntry[] {

@@ -534,16 +534,23 @@ body {
 .more-summary { margin-left: auto; font: 500 11px/1 var(--mono); color: var(--ink-2); }
 .opts { display: grid; gap: 4px; padding: 0 0 10px; }
 .opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; font: 400 12.5px/1.3 var(--ui); color: var(--ink); }
+/*
+ * The arrow is drawn here, not left to the browser: each one places its own, and Firefox's sits
+ * hard against the right edge, out of step with the text's inset. A data URI cannot follow
+ * `--ink-2`, so it takes a grey that reads on both themes' `--surface-2`.
+ */
 .opt select {
   flex: none;
   width: 124px;
   height: 28px;
-  padding: 0 8px;
+  padding: 0 26px 0 10px;
   font: 500 12px/1 var(--ui);
   color: var(--ink);
-  background: var(--surface-2);
+  background: var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8784' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6l6 -6'/%3E%3C/svg%3E") no-repeat right 9px center / 14px 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
+  appearance: none;
+  cursor: pointer;
 }
 .opt select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 .opt.check { justify-content: flex-start; gap: 9px; cursor: pointer; }
