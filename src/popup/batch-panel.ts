@@ -31,7 +31,8 @@ const urlsPane = requiredElement<HTMLElement>('urls-pane')
 const tabList = requiredElement<HTMLUListElement>('tab-list')
 const tabTools = requiredElement<HTMLElement>('tab-tools')
 const tabSummary = requiredElement<HTMLParagraphElement>('tab-summary')
-const tabsToggle = requiredElement<HTMLButtonElement>('tabs-toggle')
+const tabsToggle = requiredElement<HTMLInputElement>('tabs-toggle')
+const tabsToggleLabel = requiredElement<HTMLSpanElement>('tabs-toggle-label')
 const tabsAccess = requiredElement<HTMLElement>('tabs-access')
 const urlsInput = requiredElement<HTMLTextAreaElement>('urls')
 const urlSummary = requiredElement<HTMLParagraphElement>('url-summary')
@@ -63,9 +64,8 @@ const optionsReady = loadOptions()
 
 requiredElement<HTMLButtonElement>('batch-back').addEventListener('click', closeBatchPanel)
 requiredElement<HTMLButtonElement>('tabs-allow').addEventListener('click', () => void openBatchPage('tabs'))
-tabsToggle.addEventListener('click', () => {
-  const on = pickedTabs().length < offeredTabs().length
-  for (const entry of offeredTabs()) entry.checkbox.checked = on
+tabsToggle.addEventListener('change', () => {
+  for (const entry of offeredTabs()) entry.checkbox.checked = tabsToggle.checked
   drawTabSummary()
 })
 urlsInput.addEventListener('input', () => {
@@ -163,8 +163,11 @@ function drawTabSummary(): void {
   const offered = offeredTabs().length
   const picked = pickedTabs().length
   tabSummary.textContent = offered === 0 ? 'No tab in this window can be captured.' : `${picked} of ${plural(offered, 'tab')} picked`
-  tabsToggle.hidden = offered === 0
-  tabsToggle.textContent = picked < offered ? 'Select all' : 'Select none'
+  // Some but not all reads as the dash the browser draws for a part-ticked box, as on History.
+  tabsToggle.checked = offered > 0 && picked === offered
+  tabsToggle.indeterminate = picked > 0 && picked < offered
+  tabsToggleLabel.textContent = tabsToggle.checked ? 'Select none' : 'Select all'
+  tabsToggle.disabled = offered === 0
   drawStart(picked, 'tab')
 }
 

@@ -157,11 +157,15 @@
 
       <div class="sub-body">
         <div id="tabs-pane">
-          <ul class="tab-list" id="tab-list" aria-label="Tabs in this window"></ul>
+          <!-- Above the list, as on the History page, with its box in line with every box below it. -->
           <div class="tab-tools" id="tab-tools">
+            <label class="select-all">
+              <input id="tabs-toggle" type="checkbox" />
+              <span id="tabs-toggle-label">Select all</span>
+            </label>
             <p class="note" id="tab-summary" role="status"></p>
-            <button id="tabs-toggle" class="text-btn" type="button">Select none</button>
           </div>
+          <ul class="tab-list" id="tab-list" aria-label="Tabs in this window"></ul>
           <!--
             Without access a tab's title and address are unreadable, so there is nothing to list. The
             request is made on the Batch page: a permission prompt opened from a popup can land behind
