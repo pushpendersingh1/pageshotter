@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import manifest from '../public/manifest.json'
-import { GMAIL_ATTACHMENT_LIMIT, GMAIL_COMPOSE_URL, GMAIL_ORIGIN, gmailSizeProblem, isGmailPage } from '../src/result/gmail'
+import { manifestFor } from '../scripts/targets.mjs'
+import { GMAIL_ATTACHMENT_LIMIT, GMAIL_COMPOSE_URL, GMAIL_ORIGIN, gmailPermissions, gmailSizeProblem, isGmailPage } from '../src/result/gmail'
 
 describe('GMAIL_COMPOSE_URL', () => {
   /* The compose-only page (`?view=cm`) fills the tab and hides the inbox. */
@@ -32,4 +33,18 @@ describe('gmailSizeProblem', () => {
 it('declares Gmail access as optional only', () => {
   expect(manifest.optional_host_permissions).toContain(GMAIL_ORIGIN)
   expect('host_permissions' in manifest).toBe(false)
+})
+
+/* Firefox counts the hand-off as website content leaving the add-on; Chrome has no such declaration. */
+describe('gmailPermissions', () => {
+  it('asks Chrome for Gmail access alone', () => {
+    expect(gmailPermissions(manifest as chrome.runtime.Manifest)).toEqual({ origins: [GMAIL_ORIGIN] })
+  })
+
+  it('asks Firefox for website content in the same prompt, as its manifest declares', () => {
+    expect(gmailPermissions(manifestFor('firefox', manifest))).toEqual({
+      origins: [GMAIL_ORIGIN],
+      data_collection: ['websiteContent'],
+    })
+  })
 })

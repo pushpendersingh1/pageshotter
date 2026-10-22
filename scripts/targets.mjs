@@ -30,6 +30,9 @@ export function buildTarget(argv = process.argv) {
   }
 }
 
+/** The data Firefox's Gmail prompt asks for; `src/result/gmail.ts` reads it from the manifest. */
+const GMAIL_DATA_COLLECTION = 'websiteContent'
+
 /**
  * Firefox's floor. 153 is the ESR, and the first release where `extension.isAllowedFileSchemeAccess`
  * reflects a real setting rather than always answering false, which the local-file remedy depends on.
@@ -53,8 +56,10 @@ export function manifestFor(target, manifest) {
         // Permanent once submitted to AMO: every installed copy is matched to its updates by it.
         id: 'pageshotter@pageshotter.com',
         strict_min_version: `${FIREFOX_MIN}.0`,
-        // Nothing leaves the device, which AMO asks every new listing to declare.
-        data_collection_permissions: { required: ['none'] },
+        // Nothing leaves the device unless the user sends a screenshot to Gmail, and Mozilla counts
+        // that hand-off as website content leaving the add-on. So installing collects nothing, and
+        // the Gmail button asks for `websiteContent` in the same prompt as Gmail access.
+        data_collection_permissions: { required: ['none'], optional: [GMAIL_DATA_COLLECTION] },
       },
     },
   }
