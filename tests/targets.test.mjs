@@ -11,14 +11,14 @@ describe('manifestFor', () => {
     expect(manifestFor('edge', manifest)).toBe(manifest)
   })
 
-  it('gives Firefox an event page, its permanent ID and a no-collection declaration', () => {
+  it('gives Firefox an event page, its permanent ID, and collects nothing unless Gmail is used', () => {
     const firefox = manifestFor('firefox', manifest)
     expect(firefox.background).toEqual({ scripts: ['background.js'] })
     expect(firefox.minimum_chrome_version).toBeUndefined()
     expect(firefox.browser_specific_settings.gecko).toEqual({
       id: 'pageshotter@pageshotter.com',
       strict_min_version: '153.0',
-      data_collection_permissions: { required: ['none'] },
+      data_collection_permissions: { required: ['none'], optional: ['websiteContent'] },
     })
   })
 

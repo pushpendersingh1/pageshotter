@@ -134,7 +134,7 @@ lists exactly what is stored and for how long.
 | `contextMenus` | On install *(next release)* | Adds the capture items to the page's right-click menu. |
 | `downloads` | Only when needed | When you choose to save into a folder, or start a batch capture. |
 | Access to all websites | Only when needed *(next release)* | When you start a batch capture or list your open tabs for one: the browser lets an extension read another tab's address, or capture a tab you didn't click it on, only with this access. |
-| Access to `mail.google.com` | Only when needed *(next release)* | When you press Gmail: it lets PageShotter open a new message in your Gmail tab and attach the screenshot to it. |
+| Access to `mail.google.com` | Only when needed *(next release)* | When you press Gmail: it lets PageShotter open a new message in your Gmail tab and attach the screenshot to it. In Firefox the same prompt also asks to share website content, Mozilla's term for it, because the screenshot leaves PageShotter for Gmail. |
 
 There is no `storage`, `history`, `cookies` or `webRequest` permission, and no standing access to the
 sites you visit or to your Gmail.

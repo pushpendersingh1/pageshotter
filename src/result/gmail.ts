@@ -72,10 +72,30 @@ export function gmailOutcomeMessage(outcome: Exclude<GmailOutcome, 'attached'>):
  */
 export function requestGmailAccess(): Promise<boolean> {
   try {
-    return chrome.permissions.request({ origins: [GMAIL_ORIGIN] })
+    return chrome.permissions.request(gmailPermissions(chrome.runtime.getManifest()))
   } catch {
     return Promise.resolve(false)
   }
+}
+
+/**
+ * What the button asks for. Firefox counts the screenshot handed to Gmail as website content leaving
+ * the add-on, so its manifest declares that as optional data collection, and it is asked for in the
+ * same prompt as Gmail access. Read from the manifest rather than the browser, so a build asks for
+ * exactly what it declares, and Chrome, which has no such key, is never sent one.
+ */
+export function gmailPermissions(manifest: chrome.runtime.Manifest): chrome.permissions.Permissions {
+  const gecko = (manifest as DeclaresDataCollection).browser_specific_settings?.gecko
+  const declared = gecko?.data_collection_permissions?.optional ?? []
+  if (!declared.includes(GMAIL_DATA_COLLECTION)) return { origins: [GMAIL_ORIGIN] }
+  return { origins: [GMAIL_ORIGIN], data_collection: [GMAIL_DATA_COLLECTION] } as chrome.permissions.Permissions
+}
+
+const GMAIL_DATA_COLLECTION = 'websiteContent'
+
+/** Firefox's manifest keys, which Chrome's types do not know. */
+interface DeclaresDataCollection {
+  browser_specific_settings?: { gecko?: { data_collection_permissions?: { optional?: string[] } } }
 }
 
 /** Open a compose window and attach `file` to it once Gmail has loaded. */
