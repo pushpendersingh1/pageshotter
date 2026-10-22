@@ -1,6 +1,7 @@
 import { BROWSER } from '../shared/browser'
 import { addDegradations } from '../shared/capture-degradation'
 import { CaptureOwnership } from './capture-ownership'
+import { hideBatchProgress, showBatchProgress } from './batch-indicator'
 import { failureOutcome } from './capture-outcome'
 import {
   deleteExpiredCaptures,
@@ -291,6 +292,15 @@ async function handleRuntimeRequest(
       }
       case 'GET_JOB':
         return { ok: true, job: await getJob(request.jobId) }
+      case 'BATCH_PROGRESS':
+      case 'BATCH_FINISHED': {
+        // The tab comes from the browser rather than the message, so the icon follows the Batch page
+        // that actually sent it, and goes back to normal when that tab closes.
+        const tabId = sender?.tab?.id
+        if (request.type === 'BATCH_FINISHED' || tabId === undefined) hideBatchProgress()
+        else showBatchProgress(tabId, request.done, request.total)
+        return { ok: true }
+      }
       case 'CLOSE_RESULT_TAB': {
         // Only ever the sender's own tab. The id comes from Chrome rather than from the message, so
         // a page cannot ask for any other tab to be closed.

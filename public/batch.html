@@ -134,15 +134,51 @@
 
         <div class="batch-actions">
           <p class="note" id="access-note"></p>
-          <button id="back-to-capture" class="btn" type="button" hidden><svg class="icon" data-icon="arrow-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Back to the capture</button>
-          <button id="stop" class="btn" type="button" hidden><svg class="icon" data-icon="player-stop" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Stop</button>
           <button id="start" class="btn primary" type="button"><svg class="icon" data-icon="player-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Start</button>
         </div>
         <p class="action-alert" id="batch-status" role="status" hidden></p>
 
         <section class="group" id="report-group" aria-labelledby="report-heading" hidden>
           <h2 class="eyebrow" id="report-heading"><svg class="icon" data-icon="checklist" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Progress</h2>
+
+          <!--
+            The page in hand, at the top of the list, so nobody has to find the busy row in a list of
+            a hundred to see what the batch is doing. Shown only while a batch runs.
+          -->
+          <div class="now-card" id="now" hidden>
+            <div class="now-top">
+              <span class="now-count" id="now-count"></span>
+              <span class="now-tally" id="now-tally"></span>
+            </div>
+            <div class="now-page">
+              <span class="spin" aria-hidden="true"></span>
+              <div class="now-text">
+                <p class="now-title" id="now-title"></p>
+                <p class="now-address" id="now-address"></p>
+              </div>
+            </div>
+            <ol class="steps" id="now-steps" aria-label="This page">
+              <li data-step="loading">Open</li>
+              <li data-step="rendering">Render</li>
+              <li data-step="capturing">Capture</li>
+              <li data-step="saving">Save</li>
+            </ol>
+            <div class="now-bar" id="now-bar" role="progressbar" aria-label="Batch progress"></div>
+            <div class="now-actions">
+              <button id="back-to-capture" class="btn" type="button" hidden><svg class="icon" data-icon="arrow-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Back to the capture</button>
+              <button id="skip" class="btn" type="button" title="Skip this page and go on to the next"><svg class="icon" data-icon="player-skip-forward" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Skip this page</button>
+              <button id="stop" class="btn" type="button" title="Stop the whole batch"><svg class="icon" data-icon="player-stop" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Stop</button>
+            </div>
+          </div>
+
           <ol class="report" id="report"></ol>
+          <!-- What each row shows in place of its number once it has an outcome; cloned into every row. -->
+          <template id="row-marks">
+            <span class="spin" aria-hidden="true"></span>
+            <svg class="icon mark-saved" data-icon="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+            <svg class="icon mark-failed" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+            <svg class="icon mark-skipped" data-icon="player-skip-forward" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+          </template>
           <div class="batch-actions">
             <button id="retry-failed" class="btn" type="button" hidden><svg class="icon" data-icon="refresh" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Retry failed</button>
           </div>

@@ -15,8 +15,11 @@ const failures = []
  * exactly like the fix, which is why this is asserted rather than remembered.
  */
 const extensionPages = ['popup', 'result', 'editor', 'history', 'settings', 'welcome']
-/** The subset whose scripts require the control; welcome.html deliberately has none. */
-const themeButtonPages = ['popup', 'result', 'history', 'settings']
+/**
+ * The subset whose scripts require the control. welcome.html deliberately has none, and the settings
+ * page offers the choice as a field instead.
+ */
+const themeButtonPages = ['popup', 'result', 'history']
 for (const page of extensionPages) {
   const html = await readFile(new URL(`../public/${page}.html`, import.meta.url), 'utf8')
   const script = html.indexOf('<script src="theme-boot.js"></script>')

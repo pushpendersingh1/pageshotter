@@ -11,6 +11,9 @@ import { getExportPreferences, type ExportPreferences } from '../result/export-p
 import { saveCaptureToHistory } from '../result/history-io'
 import { createPdfBlob } from '../result/pdf-export'
 import { buildTiledImage, encodeImage } from '../result/stitcher'
+import { takeHandoff, type BatchHandoff } from './batch-handoff'
+import { BATCH_SKIP_KEY, BATCH_STOP_KEY, clearStatus, readSkip, writeStatus } from './batch-status'
+import { filledSegments, segmentCount } from '../popup/progress-bar'
 import {
   BATCH_PERMISSIONS,
   LOAD_TIMEOUT_CHOICES,
@@ -59,6 +62,15 @@ const reportGroup = requiredElement<HTMLElement>('report-group')
 const report = requiredElement<HTMLOListElement>('report')
 const retryFailedButton = requiredElement<HTMLButtonElement>('retry-failed')
 const backButton = requiredElement<HTMLButtonElement>('back-to-capture')
+const skipButton = requiredElement<HTMLButtonElement>('skip')
+const nowCard = requiredElement<HTMLElement>('now')
+const nowCount = requiredElement<HTMLElement>('now-count')
+const nowTally = requiredElement<HTMLElement>('now-tally')
+const nowTitle = requiredElement<HTMLElement>('now-title')
+const nowAddress = requiredElement<HTMLElement>('now-address')
+const nowSteps = requiredElement<HTMLOListElement>('now-steps')
+const nowBar = requiredElement<HTMLElement>('now-bar')
+const rowMarks = requiredElement<HTMLTemplateElement>('row-marks')
 const startDialog = requiredElement<HTMLDialogElement>('start-dialog')
 const startConfirm = requiredElement<HTMLButtonElement>('start-confirm')
 const startCancel = requiredElement<HTMLButtonElement>('start-cancel')
@@ -78,6 +90,7 @@ type RowState = 'waiting' | 'loading' | 'rendering' | 'capturing' | 'saving' | '
 
 interface Row {
   url: string
+  title: string
   /** Set for a tab that was already open: it is captured where it is, and never closed. */
   tabId?: number
   position: number
@@ -99,7 +112,10 @@ interface Run {
 /** A reason to end the whole batch rather than mark one page failed. */
 class BatchAbort extends Error {}
 
-/** Stop was pressed: whatever was waiting gives up, and the page in hand is not saved. */
+/**
+ * Stop or Skip was pressed: whatever was waiting gives up, and the page in hand is not saved. Which
+ * one decides only whether the batch then carries on.
+ */
 class Stopped extends Error {}
 
 /** The tab a page was in went away while it waited its turn or loaded. */
@@ -119,6 +135,10 @@ let rows: Row[] = []
 let currentRun: Run | undefined
 let running = false
 let stopRequested = false
+/** Skip was pressed for the page in hand. Cleared as each page starts, so it never reaches the next. */
+let skipRequested = false
+/** The page being worked on, so a skip can be checked against the page it was meant for. */
+let currentRow: Row | undefined
 let settingsFormat: ExportFormat = 'png'
 let source: BatchSource = batchSource(location.search)
 /** The tab the current page is loading or being captured in, and its capture once started. */
@@ -126,11 +146,16 @@ let captureTabId: number | undefined
 /** The tab this page opened for an address, which it closes again. Never an open tab it was given. */
 let openedTabId: number | undefined
 let currentJobId: string | undefined
+/** The rows the running batch was started with, and this page's own tab: what the popup is told. */
+let runRows: Row[] = []
+let ownTabId: number | undefined
 /** What the start dialog will run once confirmed: a fresh list, or rows being retried. */
 let pendingRows: Row[] | 'new' = 'new'
 /** Every tab listed, in window order, and whether each one is ticked -- kept across redraws. */
 let tabEntries: TabEntry[] = []
 const tabTicks = new Map<number, boolean>()
+/** The tabs the popup ticked, when it opened this page; every other tab starts unticked. */
+let handedTabs: Set<number> | undefined
 let tabRefresh: number | undefined
 
 /*
@@ -193,6 +218,13 @@ async function initialise(): Promise<void> {
     })
   }
 
+  const handoff = takeHandoffSafely()
+  if (handoff) {
+    source = handoff.source
+    urlsInput.value = handoff.urls
+    if (handoff.source === 'tabs') handedTabs = new Set(handoff.tabIds)
+  }
+
   checkRadio(sourceGroup, source)
   sourceGroup.addEventListener('change', () => {
     source = checkedValue(sourceGroup) === 'tabs' ? 'tabs' : 'urls'
@@ -209,6 +241,7 @@ async function initialise(): Promise<void> {
     askToStart('new')
   })
   stopButton.addEventListener('click', stop)
+  skipButton.addEventListener('click', skip)
   retryFailedButton.addEventListener('click', () => {
     const failed = rows.filter((row) => row.state === 'failed' || row.state === 'skipped')
     if (failed.length > 0) askToStart(failed)
@@ -225,6 +258,16 @@ async function initialise(): Promise<void> {
   window.addEventListener('beforeunload', (event) => {
     if (running) event.preventDefault()
   })
+  // Gone is gone, so the popup and the toolbar must stop reporting a batch that is no longer running.
+  window.addEventListener('pagehide', () => {
+    if (running) endProgress()
+  })
+  // Stop pressed in the popup, which is open over the page being captured rather than over this one.
+  window.addEventListener('storage', (event) => {
+    if (event.key === BATCH_STOP_KEY && event.newValue !== null && running && !stopRequested) stop()
+    // Pressed against a page that has since finished, it is ignored rather than spent on the next one.
+    if (event.key === BATCH_SKIP_KEY && readSkip(event.newValue) === currentRow?.position) skip()
+  })
 
   drawSource()
   drawSubfolderNote()
@@ -234,6 +277,20 @@ async function initialise(): Promise<void> {
       void drawAccessNote()
       scheduleTabRefresh()
     })
+  }
+
+  // The popup already chose the pages, so this page opens on the step that is left: confirming.
+  if (handoff) {
+    if (source === 'tabs') await refreshTabs()
+    if (pageCount() > 0) askToStart('new')
+  }
+}
+
+function takeHandoffSafely(): BatchHandoff | undefined {
+  try {
+    return takeHandoff(localStorage, Date.now())
+  } catch {
+    return undefined
   }
 }
 
@@ -380,7 +437,7 @@ function drawTabEntry(tab: chrome.tabs.Tab, entry: TabEntry | undefined): TabEnt
   entry.address.textContent = capturable ? (tab.url as string) : "Can't be captured"
   entry.title.title = tab.url ?? ''
   entry.checkbox.disabled = !capturable
-  entry.checkbox.checked = capturable && (tabTicks.get(id) ?? true)
+  entry.checkbox.checked = capturable && (tabTicks.get(id) ?? handedTabs?.has(id) ?? true)
   return entry
 }
 
@@ -512,10 +569,28 @@ function requestAccessThenRun(selected: Row[]): void {
 function stop(): void {
   stopRequested = true
   stopButton.disabled = true
+  publishProgress()
+  interruptCurrent()
+}
+
+/** Gives up on the page in hand and goes on to the next one. */
+function skip(): void {
+  if (!running || stopRequested || currentRow === undefined || skipRequested) return
+  skipRequested = true
+  publishProgress()
+  interruptCurrent()
+}
+
+function interruptCurrent(): void {
   for (const wake of loadWaiters) wake()
   if (currentJobId !== undefined) {
     void chrome.runtime.sendMessage({ type: 'CANCEL_CAPTURE', jobId: currentJobId } satisfies RuntimeRequest).catch(() => undefined)
   }
+}
+
+/** Whether the page in hand should give up: the batch is stopping, or this page was skipped. */
+function interrupted(): boolean {
+  return stopRequested || skipRequested
 }
 
 /** Shown only while someone is looking at this tab mid-batch, which is exactly when it is true. */
@@ -537,6 +612,9 @@ async function runBatch(selected: Row[]): Promise<void> {
   stopRequested = false
   setRunning(true)
   hideStatus()
+  // The options and the list above it are done with; what matters now is the page in hand.
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  reportGroup.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' })
   for (const row of selected) setRowState(row, 'waiting', 'Waiting')
 
   const options = currentOptions()
@@ -564,6 +642,9 @@ async function runBatch(selected: Row[]): Promise<void> {
   let lastDownloadId: number | undefined
   let abortMessage: string | undefined
   const own = await chrome.tabs.getCurrent().catch(() => undefined)
+  runRows = selected
+  ownTabId = own?.id
+  publishProgress()
   try {
     if (own?.id === undefined) throw new BatchAbort('This page could not find its own tab.')
     for (const [index, row] of selected.entries()) {
@@ -583,6 +664,7 @@ async function runBatch(selected: Row[]): Promise<void> {
       if (row.state === 'waiting') setRowState(row, 'skipped', 'Not captured: the batch stopped first')
     }
     running = false
+    endProgress()
     setRunning(false)
     document.title = PAGE_TITLE
     backButton.hidden = true
@@ -609,20 +691,22 @@ async function runBatch(selected: Row[]): Promise<void> {
  * Returns the download's id, so the folder can be shown at the end.
  */
 async function captureRow(row: Row, run: Run, own: chrome.tabs.Tab): Promise<number | undefined> {
+  skipRequested = false
+  currentRow = row
   setRowState(row, 'loading', row.tabId === undefined ? 'Loading' : 'Switching to it')
   try {
     const { tabId, loaded } = row.tabId === undefined ? await openPage(row, run, own) : await showTab(row.tabId, run)
     if (run.options.renderWaitMs > 0) {
       setRowState(row, 'rendering', 'Letting it render')
-      await sleepUnlessStopped(run.options.renderWaitMs)
+      await sleepUnlessInterrupted(run.options.renderWaitMs)
     }
     if (closedTabs.has(tabId)) throw new TabClosed()
 
     setRowState(row, 'capturing', 'Capturing')
     const job = await captureInWorker(tabId, run.options.mode, row.tabId !== undefined)
     // A capture stopped partway is kept by the worker as a partial, which is right for a single
-    // capture and wrong here: Stop in a batch means "not this one either".
-    if (stopRequested) {
+    // capture and wrong here: Stop and Skip in a batch both mean "not this one either".
+    if (interrupted()) {
       await deleteCapture(job.id).catch(() => undefined)
       throw new Stopped()
     }
@@ -642,14 +726,16 @@ async function captureRow(row: Row, run: Run, own: chrome.tabs.Tab): Promise<num
       setRowState(row, 'failed', abort.message)
       throw abort
     }
-    if (error instanceof Stopped || (stopRequested && error instanceof CaptureFailure)) {
-      setRowState(row, 'skipped', 'Not captured: stopped')
+    if (error instanceof Stopped || (interrupted() && error instanceof CaptureFailure)) {
+      setRowState(row, 'skipped', stopRequested ? 'Not captured: stopped' : 'Skipped')
       return undefined
     }
     setRowState(row, 'failed', error instanceof Error ? error.message : String(error))
     return undefined
   } finally {
     currentJobId = undefined
+    currentRow = undefined
+    skipRequested = false
   }
 }
 
@@ -707,7 +793,7 @@ function waitForLoad(tabId: number, timeoutMs: number, ready: () => boolean | Pr
       settle()
     }
     function check(): void {
-      if (stopRequested) finish(() => reject(new Stopped()))
+      if (interrupted()) finish(() => reject(new Stopped()))
       else if (closedTabs.has(tabId)) finish(() => reject(new TabClosed()))
       else {
         void Promise.resolve(ready()).then((isReady) => {
@@ -721,17 +807,17 @@ function waitForLoad(tabId: number, timeoutMs: number, ready: () => boolean | Pr
   })
 }
 /** The render wait, cut short by Stop. A single timer, so a background tab's throttling barely touches it. */
-function sleepUnlessStopped(ms: number): Promise<void> {
+function sleepUnlessInterrupted(ms: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const finish = (): void => {
       loadWaiters.delete(onWake)
       window.clearTimeout(timer)
-      if (stopRequested) reject(new Stopped())
+      if (interrupted()) reject(new Stopped())
       else resolve()
     }
-    // Woken by every tab update as well as by Stop, so only Stop ends it early.
+    // Woken by every tab update as well as by Stop and Skip, so only those two end it early.
     const onWake = (): void => {
-      if (stopRequested) finish()
+      if (interrupted()) finish()
     }
     const timer = window.setTimeout(finish, ms)
     loadWaiters.add(onWake)
@@ -744,8 +830,8 @@ async function captureInWorker(tabId: number, mode: BatchMode, openTab: boolean)
   if (!started.ok) throw new CaptureFailure(started.error.code, failureText(started.error.code, started.error.message, openTab))
   const jobId = started.jobId as string
   currentJobId = jobId
-  // Stop may have been pressed while the request was in flight, before there was a job to cancel.
-  if (stopRequested) stop()
+  // Stop or Skip may have been pressed while the request was in flight, before there was a job to cancel.
+  if (interrupted()) interruptCurrent()
   for (;;) {
     await settledOrBackstop(jobId)
     const response = (await chrome.runtime.sendMessage({ type: 'GET_JOB', jobId } satisfies RuntimeRequest)) as RuntimeResponse
@@ -860,9 +946,13 @@ function failureText(code: string | undefined, message: string, openTab: boolean
 
 function createRow(url: string, title: string, position: number, tabId?: number): Row {
   const element = document.createElement('li')
+  // The number while the row waits; a turning ring, a tick, a cross or a skip mark once it has a state.
   const number = document.createElement('span')
   number.className = 'position'
-  number.textContent = String(position)
+  const digits = document.createElement('span')
+  digits.className = 'num'
+  digits.textContent = String(position)
+  number.append(digits, rowMarks.content.cloneNode(true))
   const page = document.createElement('span')
   page.className = 'page'
   const address = document.createElement('span')
@@ -878,7 +968,7 @@ function createRow(url: string, title: string, position: number, tabId?: number)
   retry.textContent = 'Retry'
   retry.hidden = true
   element.append(number, page, retry)
-  const row: Row = { url, tabId, position, state: 'waiting', element, stateText, retry }
+  const row: Row = { url, title, tabId, position, state: 'waiting', element, stateText, retry }
   retry.addEventListener('click', () => {
     if (!running) askToStart([row])
   })
@@ -889,9 +979,114 @@ function createRow(url: string, title: string, position: number, tabId?: number)
 function setRowState(row: Row, state: RowState, text: string): void {
   row.state = state
   row.element.dataset.state = state
-  row.element.dataset.active = String(state === 'loading' || state === 'rendering' || state === 'capturing' || state === 'saving')
+  row.element.dataset.active = String(isActive(state))
   row.stateText.textContent = text
   row.retry.hidden = running || (state !== 'failed' && state !== 'skipped')
+  if (running) publishProgress()
+}
+
+function isActive(state: RowState): boolean {
+  return state === 'loading' || state === 'rendering' || state === 'capturing' || state === 'saving'
+}
+
+/**
+ * Where the batch has got to, for the popup and the toolbar icon. Both are looked at from the page
+ * being captured, which is the one place this page cannot be seen from.
+ */
+function publishProgress(): void {
+  drawNow()
+  if (ownTabId === undefined || runRows.length === 0) return
+  const done = finishedRows().length
+  const current = currentRunRow()
+  const skippable = skippableRow()
+  try {
+    writeStatus(localStorage, {
+      tabId: ownTabId,
+      source,
+      total: runRows.length,
+      done,
+      current: current === undefined ? '' : current.title || current.url,
+      currentPosition: skippable?.position ?? 0,
+      stopping: stopRequested,
+    })
+  } catch {
+    // The popup then shows its usual buttons; the batch, and this page's own list, carry on.
+  }
+  void chrome.runtime
+    .sendMessage({ type: 'BATCH_PROGRESS', done, total: runRows.length } satisfies RuntimeRequest)
+    .catch(() => undefined)
+}
+
+function finishedRows(): Row[] {
+  return runRows.filter((row) => row.state === 'saved' || row.state === 'failed' || row.state === 'skipped')
+}
+
+function currentRunRow(): Row | undefined {
+  return runRows.find((row) => isActive(row.state))
+}
+
+/**
+ * The page Skip would give up on. Offered only while there is one, it has not been skipped already,
+ * and it is not already being saved: by then there is nothing left to save time on.
+ */
+function skippableRow(): Row | undefined {
+  const current = currentRunRow()
+  return current !== undefined && current.state !== 'saving' && !skipRequested && !stopRequested ? current : undefined
+}
+
+const STEPS: readonly RowState[] = ['loading', 'rendering', 'capturing', 'saving']
+
+/** The card at the top of Progress: the page in hand, its steps, and the batch so far. */
+function drawNow(): void {
+  const total = runRows.length
+  const current = currentRunRow()
+  const saved = runRows.filter((row) => row.state === 'saved').length
+  const notSaved = runRows.filter((row) => row.state === 'failed' || row.state === 'skipped').length
+  const done = saved + notSaved
+
+  nowCount.textContent =
+    current !== undefined ? `Page ${runRows.indexOf(current) + 1} of ${total}` : total > 0 ? `${done} of ${total} done` : ''
+  nowTally.textContent = [saved > 0 ? `${saved} saved` : '', notSaved > 0 ? `${notSaved} not saved` : '']
+    .filter(Boolean)
+    .join(' · ')
+  nowTitle.textContent = stopRequested ? 'Stopping' : current !== undefined ? current.title || current.url : 'Starting the next page'
+  // An address typed in has no title of its own until it loads, so its address line would only repeat it.
+  const address = current !== undefined && !stopRequested && current.title !== current.url ? current.url.replace(/^https?:\/\//, '') : ''
+  nowAddress.textContent = address
+  nowAddress.title = current?.url ?? ''
+
+  // Steps before the one in hand are done; a render wait of none is not a step at all.
+  const at = current === undefined ? -1 : STEPS.indexOf(current.state)
+  for (const item of nowSteps.querySelectorAll<HTMLLIElement>('li')) {
+    const index = STEPS.indexOf(item.dataset.step as RowState)
+    item.dataset.at = index < at ? 'done' : index === at ? 'now' : ''
+    if (item.dataset.step === 'rendering') item.hidden = currentRun?.options.renderWaitMs === 0
+  }
+
+  const segments = segmentCount(total)
+  if (nowBar.children.length !== segments) {
+    nowBar.replaceChildren(...Array.from({ length: segments }, () => Object.assign(document.createElement('span'), { className: 'tick' })))
+  }
+  const filled = filledSegments(done, total, segments)
+  const working = current !== undefined ? filledSegments(done + 1, total, segments) : filled
+  for (const [index, segment] of [...nowBar.children].entries()) {
+    segment.className = `tick${index < filled ? ' done' : index < working ? ' now' : ''}`
+  }
+  nowBar.setAttribute('aria-valuemin', '0')
+  nowBar.setAttribute('aria-valuemax', String(total))
+  nowBar.setAttribute('aria-valuenow', String(done))
+
+  skipButton.disabled = skippableRow() === undefined
+}
+
+function endProgress(): void {
+  runRows = []
+  try {
+    clearStatus(localStorage)
+  } catch {
+    // Nothing was written, or nothing can be: either way nothing is left to report.
+  }
+  void chrome.runtime.sendMessage({ type: 'BATCH_FINISHED' } satisfies RuntimeRequest).catch(() => undefined)
 }
 
 function setRunning(on: boolean): void {
@@ -901,7 +1096,7 @@ function setRunning(on: boolean): void {
   tabsNoneButton.disabled = on
   for (const control of formControls()) control.disabled = on
   startButton.hidden = on
-  stopButton.hidden = !on
+  nowCard.hidden = !on
   stopButton.disabled = false
   for (const row of rows) row.retry.hidden = on || (row.state !== 'failed' && row.state !== 'skipped')
   retryFailedButton.hidden = on || !rows.some((row) => row.state === 'failed' || row.state === 'skipped')

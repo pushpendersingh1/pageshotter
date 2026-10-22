@@ -28,23 +28,112 @@
 .btn.primary:not(:disabled):hover { color: var(--on-accent); background: var(--accent); border-color: var(--accent); filter: brightness(1.08); }
 
 .report { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+/*
+ * Rows run 10px past the card's text on each side, so the page in hand can take a tinted band the
+ * full width of the list while every row's text stays on the card's edge.
+ */
 .report li {
   display: grid;
   grid-template-columns: 2.2em minmax(0, 1fr) auto;
   column-gap: 10px;
   align-items: center;
-  padding: 9px 0;
+  margin: 0 -10px;
+  padding: 9px 10px;
   border-top: 1px solid var(--line);
 }
 .report li:first-child { border-top: 0; }
-.report .position { font: 600 12px/1 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.report .position { display: grid; place-items: center start; font: 600 12px/1 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.report .position > * { grid-area: 1 / 1; }
 .report .page { display: grid; gap: 2px; min-width: 0; }
 .report .address { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 13px/1.4 var(--ui); color: var(--ink); }
 .report .state { font: 400 12.5px/1.5 var(--ui); color: var(--ink-2); }
 /* 14px, because --accent text is only legible at that size on a light ground. */
 .report li[data-state='failed'] .state { color: var(--accent); font-size: 14px; }
 .report li[data-state='saved'] .state { color: var(--ink); }
+
+/* One mark per row: the number while it waits, then whatever it came to. */
+.report .position .spin, .report .position .icon { display: none; }
+.report .position .icon { width: 16px; height: 16px; }
+.report li[data-active='true'] .num,
+.report li[data-state='saved'] .num,
+.report li[data-state='failed'] .num,
+.report li[data-state='skipped'] .num { display: none; }
+.report li[data-active='true'] .position .spin { display: block; }
+.report li[data-state='saved'] .mark-saved { display: block; color: var(--ink); }
+.report li[data-state='failed'] .mark-failed { display: block; color: var(--accent); }
+.report li[data-state='skipped'] .mark-skipped { display: block; color: var(--ink-2); }
+/* Pages still to come recede, so the eye lands on the ones that have happened and the one happening. */
+.report li[data-state='waiting'] .address { color: var(--ink-2); font-weight: 400; }
+
+/* The page in hand: the same soft red as the popup's capture panel, and a rule down its edge. */
+.report li[data-active='true'] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); border-radius: 8px; }
+.report li[data-active='true'], .report li[data-active='true'] + li { border-top-color: transparent; }
 .report li[data-active='true'] .address { font-weight: 600; }
+.report li[data-active='true'] .state { color: var(--ink); }
+
+/* A ring turning while a page is worked on, as on the toolbar icon. */
+.spin {
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 2px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 900ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- the page in hand ---------- */
+
+.now-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 10px;
+}
+.now-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.now-count { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.now-tally { font: 500 11.5px/1 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.now-page { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.now-page .spin { flex: none; width: 22px; height: 22px; border-width: 2.5px; }
+.now-text { display: grid; gap: 2px; min-width: 0; }
+.now-title, .now-address { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.now-title { font: 600 15px/1.35 var(--ui); color: var(--ink); }
+.now-address { font: 400 12px/1.4 var(--mono); color: var(--ink-2); }
+.now-address:empty { display: none; }
+
+/* The four steps one page goes through, the current one filled, so a long wait has a name. */
+.steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.steps li {
+  padding: 5px 10px;
+  font: 500 11.5px/1 var(--mono);
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.steps li[data-at='done'] { color: var(--ink); }
+.steps li[data-at='done']::before { content: '\2713\00a0'; }
+.steps li[data-at='now'] { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+
+/* One mark per page, as in the popup: done, the one in hand breathing, then what is left. */
+.now-bar { display: flex; gap: 3px; min-width: 0; overflow: hidden; }
+.now-bar .tick { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+.now-bar .tick.done { background: var(--accent); }
+.now-bar .tick.now { background: var(--accent); animation: breathe 900ms ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { opacity: .28; } 50% { opacity: .75; } }
+
+.now-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.now-actions #back-to-capture { margin-right: auto; }
+/* Filled, as in the start dialog: an outlined square reads as a checkbox. */
+.now-actions [data-icon='player-stop'] { fill: currentColor; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; border-color: var(--accent); }
+  .now-bar .tick.now { animation: none; opacity: .55; }
+}
 
 /* The tab picker: the progress list's rows, with a tick box where the number goes. */
 .tab-list { display: grid; margin: 0; padding: 0; list-style: none; max-height: 360px; overflow-y: auto; }

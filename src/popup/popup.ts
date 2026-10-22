@@ -1,9 +1,8 @@
 import { extensionDetailsPage, openShortcutSettings } from '../shared/browser'
-import { listHistory } from '../shared/capture-db'
+import { openBatchPanel } from './batch-panel'
+import { showRunningBatch } from './batch-running'
 import { filledSegments, segmentCount } from './progress-bar'
 import { captureEtaLabel } from '../shared/capture-eta'
-import type { HistoryEntry } from '../shared/history'
-import { formatSource } from '../shared/history-policy'
 import { wireThemeButton } from '../shared/theme'
 import { keycaps, parseChromeShortcut } from '../shared/keycaps'
 import type {
@@ -26,12 +25,8 @@ const progressStatus = requiredElement<HTMLElement>('progress-status')
 const progressEta = requiredElement<HTMLElement>('progress-eta')
 const segs = requiredElement<HTMLElement>('segs')
 const errorAction = requiredElement<HTMLButtonElement>('error-action')
-const shots = requiredElement<HTMLElement>('shots')
-const shotsEmpty = requiredElement<HTMLElement>('shots-empty')
 const captureFull = requiredElement<HTMLButtonElement>('capture-full')
 const themeButton = requiredElement<HTMLButtonElement>('theme')
-const viewAll = requiredElement<HTMLButtonElement>('view-all')
-const recentCount = requiredElement<HTMLElement>('recent-count')
 
 /** The words each mode is called by, so the panel names what is running rather than "Capturing...". */
 const MODE_LABELS: Record<CaptureMode, string> = {
@@ -66,9 +61,11 @@ requiredElement<HTMLButtonElement>('capture-visible').addEventListener('click', 
 requiredElement<HTMLButtonElement>('capture-region').addEventListener('click', () => void start('region'))
 requiredElement<HTMLButtonElement>('cancel').addEventListener('click', () => void cancel())
 requiredElement<HTMLButtonElement>('retry').addEventListener('click', () => void start(lastMode))
-viewAll.addEventListener('click', () => openHistory())
-requiredElement<HTMLButtonElement>('open-batch').addEventListener('click', () => openBatch(''))
-requiredElement<HTMLButtonElement>('capture-tabs').addEventListener('click', () => openBatch('?source=tabs'))
+requiredElement<HTMLButtonElement>('open-history').addEventListener('click', () => openHistory())
+for (const [id, source] of [['capture-tabs', 'tabs'], ['open-batch', 'urls']] as const) {
+  const row = requiredElement<HTMLButtonElement>(id)
+  row.addEventListener('click', () => openBatchPanel(source, row))
+}
 requiredElement<HTMLButtonElement>('open-settings').addEventListener('click', () => {
   void chrome.runtime.openOptionsPage()
   window.close()
@@ -77,12 +74,7 @@ requiredElement<HTMLButtonElement>('open-settings').addEventListener('click', ()
 // First, and before anything else is drawn: a stored palette that arrives late is a visible flash.
 void wireThemeButton(themeButton, document.documentElement)
 void drawShortcuts()
-void drawRecent()
-
-function openBatch(query: string): void {
-  void chrome.tabs.create({ url: chrome.runtime.getURL(`batch.html${query}`) })
-  window.close()
-}
+showRunningBatch()
 
 function openHistory(): void {
   void chrome.tabs.create({ url: chrome.runtime.getURL('history.html') })
@@ -145,74 +137,6 @@ async function drawShortcuts(): Promise<void> {
       window.close()
     })
   }
-}
-
-/**
- * The three newest captures, so the popup can reopen one without a trip through the history page.
- *
- * Reads the same records the history page lists and stores nothing of its own: `listHistory` returns
- * metadata and a small thumbnail, never the full-size tiles.
- */
-async function drawRecent(): Promise<void> {
-  let stored: HistoryEntry[] = []
-  try {
-    stored = await listHistory()
-  } catch {
-    // A database that will not open is not worth an error panel over a convenience list; the empty
-    // state below says the same thing and the capture buttons still work.
-  }
-
-  // The link carries the total, so the three rows below read as a window onto something larger
-  // rather than as the whole of it. It stays hidden at zero: an empty list is not worth visiting,
-  // and the empty state already says so.
-  if (stored.length > 0) {
-    recentCount.textContent = `(${stored.length})`
-    recentCount.hidden = false
-    viewAll.setAttribute('aria-label', `View all ${stored.length} screenshots in history`)
-    viewAll.hidden = false
-  }
-
-  const entries = stored.slice(0, 3)
-  if (entries.length === 0) {
-    shotsEmpty.hidden = false
-    return
-  }
-
-  shots.replaceChildren(
-    ...entries.map((entry) => {
-      const row = document.createElement('button')
-      row.type = 'button'
-      row.className = 'shot'
-      row.title = entry.title
-
-      const thumb = document.createElement('span')
-      thumb.className = 'thumb'
-      if (entry.thumbnail) {
-        const image = document.createElement('img')
-        image.src = URL.createObjectURL(entry.thumbnail)
-        image.alt = ''
-        thumb.append(image)
-      }
-
-      const site = document.createElement('span')
-      site.className = 'site'
-      // The host alone, falling back to the title for a capture whose address was never recorded.
-      site.textContent = formatSource(entry.url) || entry.title
-
-      const dims = document.createElement('span')
-      dims.className = 'dims'
-      dims.textContent = `${entry.width} × ${entry.height}`
-
-      row.append(thumb, site, dims)
-      row.addEventListener('click', () => {
-        void chrome.tabs.create({
-          url: chrome.runtime.getURL(`result.html?job=${encodeURIComponent(entry.id)}`),
-        })
-        window.close()
-      })
-      return row
-    }),
-  )
 }
 
 async function start(mode: CaptureMode): Promise<void> {
@@ -370,7 +294,6 @@ function showError(error: CaptureError): void {
   idle.hidden = true
   capturing.hidden = true
   errorPanel.hidden = false
-  // The head already carries the "Nothing leaves this browser" reassurance, so it is not repeated.
   errorMessage.textContent = error.message
   // Telling someone to turn on a toggle without taking them to it leaves them hunting through
   // chrome://extensions for their own extension.

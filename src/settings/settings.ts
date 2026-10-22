@@ -39,7 +39,7 @@ import { folderProblem, sanitiseFolder } from '../shared/download-folder'
 import { deleteHistoryEntries, listHistory } from '../shared/capture-db'
 import { captureShortcut } from '../shared/shortcut'
 import { showContextMenu } from '../shared/context-menu'
-import { applyStoredTheme, wireThemeButton } from '../shared/theme'
+import { THEME_CHOICES, applyStoredTheme, applyTheme, readTheme, setTheme } from '../shared/theme'
 import {
   EXPORT_FORMATS,
   EXPORT_SCALES,
@@ -65,10 +65,9 @@ import { PDF_PAPERS, type PdfPageSizeName } from '../result/pdf-layout'
 import { commitFolderDraft } from './download-folder-setting'
 import { BATCH_PERMISSIONS } from '../batch/batch-plan'
 
-// Chrome follows the theme; the preference is read by every page and can be changed from any of
-// them, so the button behaves identically here, in the popup, and on the result page.
-void applyStoredTheme(document.documentElement)
-wireThemeButton(requiredElement<HTMLButtonElement>('theme'), document.documentElement)
+// Applied first: a stored palette that arrives late is a visible flash. The same call answers what
+// the Appearance control starts on, so it cannot disagree with the palette the page is showing.
+const storedTheme = applyStoredTheme(document.documentElement)
 
 const retentionSelect = requiredElement<HTMLSelectElement>('history-retention')
 const longPageSelect = requiredElement<HTMLSelectElement>('long-page')
@@ -102,6 +101,7 @@ const siteAccessState = requiredElement<HTMLSpanElement>('site-access-state')
 const siteAccessNote = requiredElement<HTMLParagraphElement>('site-access-note')
 const siteAccessAction = requiredElement<HTMLButtonElement>('site-access-action')
 const exportFormatGroup = requiredElement<HTMLElement>('export-format')
+const themeGroup = requiredElement<HTMLElement>('theme-choice')
 const exportQualitySelect = requiredElement<HTMLSelectElement>('export-quality')
 const exportQualityCaution = requiredElement<HTMLParagraphElement>('export-quality-caution')
 const exportScaleSelect = requiredElement<HTMLSelectElement>('export-scale')
@@ -120,6 +120,7 @@ let folderCommitBusy = false
 let exportPreferences: ExportPreferences = structuredClone(DEFAULT_EXPORT_PREFERENCES)
 
 void initialise()
+void initialiseTheme()
 
 async function initialise(): Promise<void> {
   for (const choice of HISTORY_RETENTION_CHOICES) {
@@ -347,6 +348,25 @@ async function initialiseExportSettings(): Promise<void> {
       void setPdfOptions(exportPreferences.pdf).catch(() => showSettingsAlert('The PDF defaults could not be saved.', true))
     })
   }
+}
+
+/**
+ * The theme the popup used to cycle through, now chosen here. Same stored value, so a choice made
+ * with the old button carries over. Shorter labels than the cycling buttons' own, because a
+ * segmented control shows all three side by side and "Match the system" would crowd the row.
+ */
+async function initialiseTheme(): Promise<void> {
+  const labels = { system: 'System', light: 'Light', dark: 'Dark' } as const
+  for (const { theme } of THEME_CHOICES) {
+    appendSegment(themeGroup, 'theme-choice-input', theme, labels[theme], theme === 'system')
+  }
+  checkRadio(themeGroup, await storedTheme)
+  themeGroup.addEventListener('change', () => {
+    const theme = readTheme(checkedValue(themeGroup))
+    // Applied before it is stored: the change must show whether or not the write lands.
+    applyTheme(theme, document.documentElement)
+    void setTheme(theme).catch(() => showSettingsAlert('The theme could not be saved.', true))
+  })
 }
 
 /** One item of a segmented control: a radio, so the platform owns roving focus and the announcement. */

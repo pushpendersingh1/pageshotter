@@ -144,6 +144,10 @@ export type RuntimeRequest =
    * opens nothing; the batch page polls `GET_JOB` and saves the result itself.
    */
   | { type: 'START_BATCH_CAPTURE'; tabId: number; mode: 'full' | 'visible' }
+  /** Where a batch has got to, for the toolbar icon; `done` of `total` pages finished. */
+  | { type: 'BATCH_PROGRESS'; done: number; total: number }
+  /** The batch ended, however it ended: the toolbar icon goes back to normal. */
+  | { type: 'BATCH_FINISHED' }
 
 export type RuntimeResponse =
   | { ok: true; jobId?: string; job?: CaptureJob }

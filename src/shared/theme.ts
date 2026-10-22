@@ -12,8 +12,9 @@ import { THEME_MIRROR_KEY } from './theme-key'
 export type Theme = 'system' | 'light' | 'dark'
 
 /**
- * The order the popup's one button cycles through, starting from the default. Kept as data rather
- * than a chain of conditionals so the cycle and the labels cannot drift apart.
+ * The order the pages' theme buttons cycle through, starting from the default, and the order the
+ * settings page lists them in. Kept as data rather than a chain of conditionals so the cycle and the
+ * labels cannot drift apart.
  */
 export const THEME_CHOICES: ReadonlyArray<{ theme: Theme; label: string }> = [
   { theme: 'system', label: 'Match the system' },
@@ -105,8 +106,8 @@ export async function applyStoredTheme(root: HTMLElement): Promise<Theme> {
 /**
  * Wires one button to cycle the palette, for any page that wants to offer the control.
  *
- * This lives here rather than in a page because two copies of it would drift: the popup and the
- * result page have to agree on the cycle order, on which icon means which state, and on what the
+ * This lives here rather than in a page because two copies of it would drift: every page with the
+ * button has to agree on the cycle order, on which icon means which state, and on what the
  * label says -- and a control that cycles has to announce *where it goes next*, which is the part
  * that is easy to get subtly wrong twice.
  *
