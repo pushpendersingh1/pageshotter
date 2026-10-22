@@ -11,6 +11,7 @@ import { getExportPreferences, type ExportPreferences } from '../result/export-p
 import { saveCaptureToHistory } from '../result/history-io'
 import { createPdfBlob } from '../result/pdf-export'
 import { buildTiledImage, encodeImage } from '../result/stitcher'
+import { takeHandoff, type BatchHandoff } from './batch-handoff'
 import {
   BATCH_PERMISSIONS,
   LOAD_TIMEOUT_CHOICES,
@@ -131,6 +132,8 @@ let pendingRows: Row[] | 'new' = 'new'
 /** Every tab listed, in window order, and whether each one is ticked -- kept across redraws. */
 let tabEntries: TabEntry[] = []
 const tabTicks = new Map<number, boolean>()
+/** The tabs the popup ticked, when it opened this page; every other tab starts unticked. */
+let handedTabs: Set<number> | undefined
 let tabRefresh: number | undefined
 
 /*
@@ -193,6 +196,13 @@ async function initialise(): Promise<void> {
     })
   }
 
+  const handoff = takeHandoffSafely()
+  if (handoff) {
+    source = handoff.source
+    urlsInput.value = handoff.urls
+    if (handoff.source === 'tabs') handedTabs = new Set(handoff.tabIds)
+  }
+
   checkRadio(sourceGroup, source)
   sourceGroup.addEventListener('change', () => {
     source = checkedValue(sourceGroup) === 'tabs' ? 'tabs' : 'urls'
@@ -234,6 +244,20 @@ async function initialise(): Promise<void> {
       void drawAccessNote()
       scheduleTabRefresh()
     })
+  }
+
+  // The popup already chose the pages, so this page opens on the step that is left: confirming.
+  if (handoff) {
+    if (source === 'tabs') await refreshTabs()
+    if (pageCount() > 0) askToStart('new')
+  }
+}
+
+function takeHandoffSafely(): BatchHandoff | undefined {
+  try {
+    return takeHandoff(localStorage, Date.now())
+  } catch {
+    return undefined
   }
 }
 
@@ -380,7 +404,7 @@ function drawTabEntry(tab: chrome.tabs.Tab, entry: TabEntry | undefined): TabEnt
   entry.address.textContent = capturable ? (tab.url as string) : "Can't be captured"
   entry.title.title = tab.url ?? ''
   entry.checkbox.disabled = !capturable
-  entry.checkbox.checked = capturable && (tabTicks.get(id) ?? true)
+  entry.checkbox.checked = capturable && (tabTicks.get(id) ?? handedTabs?.has(id) ?? true)
   return entry
 }
 

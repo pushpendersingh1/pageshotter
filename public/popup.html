@@ -29,120 +29,189 @@
       </button>
     </header>
 
-    <div class="actions">
-      <!--
-        Each button's visible text is its accessible name; the title is the one-line description the
-        old two-line buttons printed, and is read as the accessible description.
-      -->
-      <div id="idle">
-        <div class="slot">
-          <button id="capture-full" class="btn primary" type="button" title="Scrolls to the bottom and stitches it">
-            <span class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-            <span class="flash" aria-hidden="true"></span>
-            <svg class="icon" data-icon="arrow-autofit-down" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-            <span class="label">Full page</span>
-          </button>
-          <!-- Label, state and visibility all come from chrome.commands.getAll(); see drawShortcuts(). -->
-          <button id="shortcut-full" class="kbd" type="button" hidden></button>
-        </div>
+    <!--
+      Two views in one cell: the capture controls, and the batch panel that slides in over them from
+      the right. See batch-panel.ts.
+    -->
+    <div class="views">
+      <div id="home" class="view">
+        <div class="actions">
+          <!--
+            Each button's visible text is its accessible name; the title is the one-line description the
+            old two-line buttons printed, and is read as the accessible description.
+          -->
+          <div id="idle">
+            <div class="slot">
+              <button id="capture-full" class="btn primary" type="button" title="Scrolls to the bottom and stitches it">
+                <span class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                <span class="flash" aria-hidden="true"></span>
+                <svg class="icon" data-icon="arrow-autofit-down" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+                <span class="label">Full page</span>
+              </button>
+              <!-- Label, state and visibility all come from chrome.commands.getAll(); see drawShortcuts(). -->
+              <button id="shortcut-full" class="kbd" type="button" hidden></button>
+            </div>
 
-        <div class="row2">
-          <div class="slot">
-            <button id="capture-visible" class="btn cell" type="button" title="What is on screen">
-              <svg class="icon" data-icon="browser" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-              <span class="label">Visible</span>
-            </button>
-            <button id="shortcut-visible" class="kbd" type="button" hidden></button>
+            <div class="row2">
+              <div class="slot">
+                <button id="capture-visible" class="btn cell" type="button" title="What is on screen">
+                  <svg class="icon" data-icon="browser" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+                  <span class="label">Visible</span>
+                </button>
+                <button id="shortcut-visible" class="kbd" type="button" hidden></button>
+              </div>
+
+              <div class="slot">
+                <button id="capture-region" class="btn cell" type="button" title="Drag a region">
+                  <svg class="icon" data-icon="capture" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+                  <span class="label">Selection</span>
+                </button>
+                <button id="shortcut-region" class="kbd" type="button" hidden></button>
+              </div>
+            </div>
+
+            <!-- Both open the batch panel, which picks the pages here and hands the run to the Batch page. -->
+            <div class="batch">
+              <button id="capture-tabs" class="row" type="button" title="Pick from this window">
+                <svg class="icon" data-icon="versions" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+                <span class="label">All tabs</span>
+                <svg class="icon chevron" data-icon="chevron-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+              </button>
+              <button id="open-batch" class="row" type="button" title="Paste addresses">
+                <svg class="icon" data-icon="list-details" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+                <span class="label">List of URLs</span>
+                <svg class="icon chevron" data-icon="chevron-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+              </button>
+            </div>
           </div>
 
-          <div class="slot">
-            <button id="capture-region" class="btn cell" type="button" title="Drag a region">
-              <svg class="icon" data-icon="capture" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-              <span class="label">Selection</span>
-            </button>
-            <button id="shortcut-region" class="kbd" type="button" hidden></button>
+          <div id="capturing" hidden aria-live="polite">
+            <span class="eyebrow">Capturing</span>
+            <div class="panel">
+              <span class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span class="scanline" aria-hidden="true"></span>
+
+              <div class="panel-head">
+                <span class="panel-title" id="progress-title">Full page</span>
+                <span class="panel-count" id="progress-count" hidden><b id="progress-current"></b> / <span id="progress-total"></span> sections</span>
+              </div>
+
+              <div class="segs unmeasured" id="segs" role="progressbar" aria-label="Capture progress"></div>
+
+              <div class="panel-foot">
+                <span class="panel-status">
+                  <span id="progress-status">Preparing</span>
+                  <!--
+                    aria-hidden because this sits inside an aria-live region and changes every poll; the
+                    section count beside it already announces real progress.
+                  -->
+                  <span class="dim" id="progress-eta" aria-hidden="true"></span>
+                </span>
+                <button id="cancel" class="quiet" type="button"><span class="stop-mark" aria-hidden="true"></span>Stop</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="error" hidden aria-live="assertive">
+            <span class="eyebrow">Capture stopped</span>
+            <div class="panel">
+              <div class="panel-head">
+                <span class="panel-title">Capture couldn't finish</span>
+              </div>
+              <p class="panel-message" id="error-message"></p>
+              <div class="panel-foot">
+                <button id="retry" class="quiet" type="button">
+                  <svg class="icon" data-icon="refresh" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Retry
+                </button>
+                <!-- Shown only for a failure whose remedy is a toggle on PageShotter's own page. -->
+                <button id="error-action" class="link" type="button" hidden>
+                  Fix this
+                  <svg class="icon" data-icon="arrow-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Both open the Batch page, which picks the pages, holds the options and shows progress. -->
-        <div class="batch">
-          <button id="capture-tabs" class="row" type="button" title="Pick from this window">
-            <svg class="icon" data-icon="versions" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-            <span class="label">All tabs</span>
-            <svg class="icon chevron" data-icon="chevron-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-          </button>
-          <button id="open-batch" class="row" type="button" title="Paste addresses">
-            <svg class="icon" data-icon="list-details" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-            <span class="label">List of URLs</span>
-            <svg class="icon chevron" data-icon="chevron-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-          </button>
-        </div>
+        <footer class="foot">
+          <!-- The same words and dot the full pages put under their sidebar. -->
+          <p class="device" title="Screenshots and settings stay in this browser">
+            <span class="dot" aria-hidden="true"></span>On this device
+          </p>
+          <nav class="links">
+            <button id="open-history" type="button">
+              <svg class="icon" data-icon="clock" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+              History
+            </button>
+            <button id="open-settings" type="button">
+              <svg class="icon" data-icon="adjustments-horizontal" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+              Settings
+            </button>
+          </nav>
+        </footer>
       </div>
 
-      <div id="capturing" hidden aria-live="polite">
-        <span class="eyebrow">Capturing</span>
-        <div class="panel">
-          <span class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-          <span class="scanline" aria-hidden="true"></span>
+      <section id="batch-panel" class="view sub" hidden aria-labelledby="batch-title">
+        <div class="sub-head">
+          <button id="batch-back" class="back" type="button" aria-label="Back">
+            <svg class="icon" data-icon="arrow-left" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+          </button>
+          <h2 id="batch-title" class="sub-title" tabindex="-1">All tabs</h2>
+        </div>
 
-          <div class="panel-head">
-            <span class="panel-title" id="progress-title">Full page</span>
-            <span class="panel-count" id="progress-count" hidden><b id="progress-current"></b> / <span id="progress-total"></span> sections</span>
+        <div class="sub-body">
+          <div id="tabs-pane">
+            <ul class="tab-list" id="tab-list" aria-label="Tabs in this window"></ul>
+            <div class="tab-tools" id="tab-tools">
+              <p class="note" id="tab-summary" role="status"></p>
+              <button id="tabs-toggle" class="text-btn" type="button">Select none</button>
+            </div>
+            <!--
+              Without access a tab's title and address are unreadable, so there is nothing to list. The
+              request is made on the Batch page: a permission prompt opened from a popup can land behind
+              it, and the popup closes before the answer arrives.
+            -->
+            <div class="access" id="tabs-access" hidden>
+              <p class="note">To list this window's tabs, PageShotter needs the access to all websites that batch capture uses. You allow it once, on the Batch page. Nothing is uploaded.</p>
+              <button id="tabs-allow" class="quiet" type="button">
+                Continue on the Batch page
+                <svg class="icon" data-icon="arrow-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+              </button>
+            </div>
           </div>
 
-          <div class="segs unmeasured" id="segs" role="progressbar" aria-label="Capture progress"></div>
+          <div id="urls-pane" hidden>
+            <label class="field-label" for="urls">One address per line</label>
+            <textarea id="urls" rows="6" spellcheck="false" autocomplete="off" placeholder="example.com/pricing&#10;https://example.com/docs" aria-describedby="url-summary"></textarea>
+            <p class="note" id="url-summary" role="status"></p>
+          </div>
 
-          <div class="panel-foot">
-            <span class="panel-status">
-              <span id="progress-status">Preparing</span>
-              <!--
-                aria-hidden because this sits inside an aria-live region and changes every poll; the
-                section count beside it already announces real progress.
-              -->
-              <span class="dim" id="progress-eta" aria-hidden="true"></span>
-            </span>
-            <button id="cancel" class="quiet" type="button"><span class="stop-mark" aria-hidden="true"></span>Stop</button>
+          <details class="more" id="batch-more">
+            <summary>
+              <svg class="icon caret" data-icon="chevron-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+              More options
+              <span class="more-summary" id="more-summary"></span>
+            </summary>
+            <div class="opts">
+              <label class="opt"><span>Capture</span><select id="opt-mode"></select></label>
+              <label class="opt"><span>Save as</span><select id="opt-format"></select></label>
+              <label class="opt"><span>Wait for the page to load</span><select id="opt-load"></select></label>
+              <label class="opt"><span>Then let it render</span><select id="opt-render"></select></label>
+              <label class="opt check"><input id="opt-subfolder" type="checkbox" /><span>Save into a new folder for this batch</span></label>
+              <label class="opt check"><input id="opt-show" type="checkbox" /><span>Show the folder when finished</span></label>
+            </div>
+          </details>
+
+          <div class="start-row" id="start-row">
+            <p class="note">Runs in a new tab, which lists each page as it is saved.</p>
+            <button id="batch-start" class="btn go" type="button" disabled>
+              <svg class="icon" data-icon="player-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
+              <span class="label" id="batch-start-label">Capture</span>
+            </button>
           </div>
         </div>
-      </div>
-
-      <div id="error" hidden aria-live="assertive">
-        <span class="eyebrow">Capture stopped</span>
-        <div class="panel">
-          <div class="panel-head">
-            <span class="panel-title">Capture couldn't finish</span>
-          </div>
-          <p class="panel-message" id="error-message"></p>
-          <div class="panel-foot">
-            <button id="retry" class="quiet" type="button">
-              <svg class="icon" data-icon="refresh" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Retry
-            </button>
-            <!-- Shown only for a failure whose remedy is a toggle on PageShotter's own page. -->
-            <button id="error-action" class="link" type="button" hidden>
-              Fix this
-              <svg class="icon" data-icon="arrow-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-            </button>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
-
-    <footer class="foot">
-      <!-- The same words and dot the full pages put under their sidebar. -->
-      <p class="device" title="Screenshots and settings stay in this browser">
-        <span class="dot" aria-hidden="true"></span>On this device
-      </p>
-      <nav class="links">
-        <button id="open-history" type="button">
-          <svg class="icon" data-icon="clock" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-          History
-        </button>
-        <button id="open-settings" type="button">
-          <svg class="icon" data-icon="adjustments-horizontal" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>
-          Settings
-        </button>
-      </nav>
-    </footer>
 
     <script src="popup.js"></script>
   </body>

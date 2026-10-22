@@ -135,8 +135,8 @@ body {
 .cell:hover .icon { color: var(--accent); }
 
 /*
- * The two batch routes leave the popup for a page of their own, so they are drawn as rows that lead
- * somewhere, not as buttons that act here. The rows keep the buttons' horizontal inset, so all five
+ * The two batch routes open a panel of their own, so they are drawn as rows that lead somewhere,
+ * not as buttons that act here. The rows keep the buttons' horizontal inset, so all five
  * icons sit on one vertical line.
  */
 .batch { display: grid; }
@@ -429,9 +429,154 @@ body {
 .foot button:hover { color: var(--ink); background: var(--surface-2); }
 .foot .icon { width: 15px; height: 15px; }
 
+/* ---------- views ---------- */
+
+/*
+ * The capture controls and the batch panel share one grid cell, so a slide between them moves two
+ * views that are both laid out, rather than swapping one for the other mid-frame. `overflow: hidden`
+ * keeps the view on its way out from widening the popup window as it leaves.
+ */
+.views { display: grid; overflow: hidden; }
+.views > .view { grid-area: 1 / 1; min-width: 0; }
+.in-right { animation: in-right 320ms cubic-bezier(0.2, 0.85, 0.25, 1); }
+.in-left { animation: in-left 320ms cubic-bezier(0.2, 0.85, 0.25, 1); }
+.out-left { animation: out-left 320ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards; pointer-events: none; }
+.out-right { animation: out-right 320ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards; pointer-events: none; }
+@keyframes in-right { from { transform: translateX(100%); } }
+@keyframes in-left { from { transform: translateX(-100%); } }
+@keyframes out-left { to { transform: translateX(-100%); } }
+@keyframes out-right { to { transform: translateX(100%); } }
+
+/* ---------- batch panel ---------- */
+
+.sub:not([hidden]) { display: flex; flex-direction: column; }
+/* Several parts set their own `display`, which would otherwise outrank the attribute. */
+.sub [hidden] { display: none !important; }
+
+.sub-head { display: flex; align-items: center; gap: 4px; padding: 0 16px 8px; }
+/* 8px less on the left, so the arrow's stroke lines up with the lockup above it. */
+.back {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -8px;
+  padding: 0;
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  border-radius: 8px;
+}
+.back:hover { color: var(--ink); background: var(--surface-2); }
+.back .icon { width: 18px; height: 18px; }
+.sub-title { margin: 0; font: 600 14px/1.2 var(--ui); letter-spacing: -0.005em; color: var(--ink); }
+/* Focused only so a screen reader announces where the slide went; it is not a stop in the tab order. */
+.sub-title:focus { outline: none; }
+
+.sub-body { display: grid; gap: 10px; padding: 0 16px var(--edge); }
+.note { margin: 0; font: 400 11.5px/1.45 var(--ui); color: var(--ink-2); }
+
+/*
+ * The host alone under each title, because a full address does not fit 350px; the row's tooltip has
+ * all of it. The list scrolls inside the popup, which a browser will not make taller than 600px.
+ */
+.tab-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 232px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+/* Opening the options takes its room from the list rather than pushing Start out of the window. */
+.sub:has(.more[open]) .tab-list { max-height: 124px; }
+.tab-list li + li { border-top: 1px solid var(--line); }
+.tab-list label { display: flex; align-items: center; gap: 10px; padding: 7px 10px; cursor: pointer; }
+.tab-list label:has(input:disabled) { cursor: default; opacity: 0.6; }
+.tab-list input, .opt.check input { flex: none; width: 15px; height: 15px; margin: 0; accent-color: var(--accent); }
+.tab-list .page { display: grid; gap: 1px; min-width: 0; }
+.tab-list .name, .tab-list .where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab-list .name { font: 500 12.5px/1.35 var(--ui); color: var(--ink); }
+.tab-list .where { font: 400 11.5px/1.35 var(--ui); color: var(--ink-2); }
+
+#tabs-pane { display: grid; gap: 8px; }
+.tab-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.text-btn {
+  flex: none;
+  padding: 4px 6px;
+  margin-right: -6px;
+  font: 500 12px/1 var(--ui);
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+.text-btn:hover { color: var(--accent); }
+
+.access { display: grid; gap: 10px; }
+.access .quiet { justify-self: start; margin-left: 0; }
+
+#urls-pane { display: grid; gap: 6px; }
+.field-label { font: 500 12px/1.3 var(--ui); color: var(--ink-2); }
+#urls {
+  width: 100%;
+  resize: none;
+  padding: 8px 10px;
+  font: 400 12.5px/1.5 var(--mono);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+#urls:focus-visible { border-color: var(--accent); outline: none; }
+
+.more { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.more summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  list-style: none;
+  cursor: pointer;
+  font: 500 12.5px/1 var(--ui);
+  color: var(--ink);
+}
+.more summary::-webkit-details-marker { display: none; }
+.more summary:focus-visible { outline-offset: 0; border-radius: 4px; }
+.more .caret { width: 14px; height: 14px; flex: none; color: var(--ink-2); transition: transform 180ms ease; }
+.more[open] .caret { transform: rotate(90deg); }
+/* What the closed section will do, so nobody has to open it to find out. */
+.more-summary { margin-left: auto; font: 500 11px/1 var(--mono); color: var(--ink-2); }
+.opts { display: grid; gap: 4px; padding: 0 0 10px; }
+.opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; font: 400 12.5px/1.3 var(--ui); color: var(--ink); }
+.opt select {
+  flex: none;
+  width: 124px;
+  height: 28px;
+  padding: 0 8px;
+  font: 500 12px/1 var(--ui);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.opt select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.opt.check { justify-content: flex-start; gap: 9px; cursor: pointer; }
+
+.start-row { display: grid; gap: 8px; }
+/*
+ * The panel's one primary action, in `--accent` like every other surface's Start. Full page keeps
+ * the brand red to itself. `.btn:hover` lifts to `--surface`, so the fill is restated.
+ */
+.go { justify-content: center; min-height: 40px; color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+.go:hover { background: var(--accent); border-color: var(--accent); filter: brightness(1.07); }
+.go:disabled { opacity: 0.45; cursor: default; filter: none; transform: none; }
+
 @media (prefers-reduced-motion: reduce) {
   /* A sweep frozen at the top of the panel says nothing, so it is removed rather than stilled. */
   .scanline { display: none; }
+  .more .caret { transition: none; }
   /* Without the pulse, "done" and "now" would be the same colour; the current segment stays legible. */
   .seg.now { opacity: 0.55; }
   .frame i { opacity: 0.7; }
