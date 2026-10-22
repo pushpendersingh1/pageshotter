@@ -13,6 +13,7 @@ import { createPdfBlob } from '../result/pdf-export'
 import { buildTiledImage, encodeImage } from '../result/stitcher'
 import { takeHandoff, type BatchHandoff } from './batch-handoff'
 import { BATCH_SKIP_KEY, BATCH_STOP_KEY, clearStatus, readSkip, writeStatus } from './batch-status'
+import { filledSegments, segmentCount } from '../popup/progress-bar'
 import {
   BATCH_PERMISSIONS,
   LOAD_TIMEOUT_CHOICES,
@@ -61,6 +62,15 @@ const reportGroup = requiredElement<HTMLElement>('report-group')
 const report = requiredElement<HTMLOListElement>('report')
 const retryFailedButton = requiredElement<HTMLButtonElement>('retry-failed')
 const backButton = requiredElement<HTMLButtonElement>('back-to-capture')
+const skipButton = requiredElement<HTMLButtonElement>('skip')
+const nowCard = requiredElement<HTMLElement>('now')
+const nowCount = requiredElement<HTMLElement>('now-count')
+const nowTally = requiredElement<HTMLElement>('now-tally')
+const nowTitle = requiredElement<HTMLElement>('now-title')
+const nowAddress = requiredElement<HTMLElement>('now-address')
+const nowSteps = requiredElement<HTMLOListElement>('now-steps')
+const nowBar = requiredElement<HTMLElement>('now-bar')
+const rowMarks = requiredElement<HTMLTemplateElement>('row-marks')
 const startDialog = requiredElement<HTMLDialogElement>('start-dialog')
 const startConfirm = requiredElement<HTMLButtonElement>('start-confirm')
 const startCancel = requiredElement<HTMLButtonElement>('start-cancel')
@@ -231,6 +241,7 @@ async function initialise(): Promise<void> {
     askToStart('new')
   })
   stopButton.addEventListener('click', stop)
+  skipButton.addEventListener('click', skip)
   retryFailedButton.addEventListener('click', () => {
     const failed = rows.filter((row) => row.state === 'failed' || row.state === 'skipped')
     if (failed.length > 0) askToStart(failed)
@@ -601,6 +612,9 @@ async function runBatch(selected: Row[]): Promise<void> {
   stopRequested = false
   setRunning(true)
   hideStatus()
+  // The options and the list above it are done with; what matters now is the page in hand.
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  reportGroup.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' })
   for (const row of selected) setRowState(row, 'waiting', 'Waiting')
 
   const options = currentOptions()
@@ -932,9 +946,13 @@ function failureText(code: string | undefined, message: string, openTab: boolean
 
 function createRow(url: string, title: string, position: number, tabId?: number): Row {
   const element = document.createElement('li')
+  // The number while the row waits; a turning ring, a tick, a cross or a skip mark once it has a state.
   const number = document.createElement('span')
   number.className = 'position'
-  number.textContent = String(position)
+  const digits = document.createElement('span')
+  digits.className = 'num'
+  digits.textContent = String(position)
+  number.append(digits, rowMarks.content.cloneNode(true))
   const page = document.createElement('span')
   page.className = 'page'
   const address = document.createElement('span')
@@ -976,12 +994,11 @@ function isActive(state: RowState): boolean {
  * being captured, which is the one place this page cannot be seen from.
  */
 function publishProgress(): void {
+  drawNow()
   if (ownTabId === undefined || runRows.length === 0) return
-  const done = runRows.filter((row) => row.state === 'saved' || row.state === 'failed' || row.state === 'skipped').length
-  const current = runRows.find((row) => isActive(row.state))
-  // Offered only while there is a page to skip, it has not been skipped already, and it is not
-  // already being saved: by then there is nothing left to save time on.
-  const skippable = current !== undefined && current.state !== 'saving' && !skipRequested && !stopRequested
+  const done = finishedRows().length
+  const current = currentRunRow()
+  const skippable = skippableRow()
   try {
     writeStatus(localStorage, {
       tabId: ownTabId,
@@ -989,7 +1006,7 @@ function publishProgress(): void {
       total: runRows.length,
       done,
       current: current === undefined ? '' : current.title || current.url,
-      currentPosition: skippable ? current.position : 0,
+      currentPosition: skippable?.position ?? 0,
       stopping: stopRequested,
     })
   } catch {
@@ -998,6 +1015,68 @@ function publishProgress(): void {
   void chrome.runtime
     .sendMessage({ type: 'BATCH_PROGRESS', done, total: runRows.length } satisfies RuntimeRequest)
     .catch(() => undefined)
+}
+
+function finishedRows(): Row[] {
+  return runRows.filter((row) => row.state === 'saved' || row.state === 'failed' || row.state === 'skipped')
+}
+
+function currentRunRow(): Row | undefined {
+  return runRows.find((row) => isActive(row.state))
+}
+
+/**
+ * The page Skip would give up on. Offered only while there is one, it has not been skipped already,
+ * and it is not already being saved: by then there is nothing left to save time on.
+ */
+function skippableRow(): Row | undefined {
+  const current = currentRunRow()
+  return current !== undefined && current.state !== 'saving' && !skipRequested && !stopRequested ? current : undefined
+}
+
+const STEPS: readonly RowState[] = ['loading', 'rendering', 'capturing', 'saving']
+
+/** The card at the top of Progress: the page in hand, its steps, and the batch so far. */
+function drawNow(): void {
+  const total = runRows.length
+  const current = currentRunRow()
+  const saved = runRows.filter((row) => row.state === 'saved').length
+  const notSaved = runRows.filter((row) => row.state === 'failed' || row.state === 'skipped').length
+  const done = saved + notSaved
+
+  nowCount.textContent =
+    current !== undefined ? `Page ${runRows.indexOf(current) + 1} of ${total}` : total > 0 ? `${done} of ${total} done` : ''
+  nowTally.textContent = [saved > 0 ? `${saved} saved` : '', notSaved > 0 ? `${notSaved} not saved` : '']
+    .filter(Boolean)
+    .join(' · ')
+  nowTitle.textContent = stopRequested ? 'Stopping' : current !== undefined ? current.title || current.url : 'Starting the next page'
+  // An address typed in has no title of its own until it loads, so its address line would only repeat it.
+  const address = current !== undefined && !stopRequested && current.title !== current.url ? current.url.replace(/^https?:\/\//, '') : ''
+  nowAddress.textContent = address
+  nowAddress.title = current?.url ?? ''
+
+  // Steps before the one in hand are done; a render wait of none is not a step at all.
+  const at = current === undefined ? -1 : STEPS.indexOf(current.state)
+  for (const item of nowSteps.querySelectorAll<HTMLLIElement>('li')) {
+    const index = STEPS.indexOf(item.dataset.step as RowState)
+    item.dataset.at = index < at ? 'done' : index === at ? 'now' : ''
+    if (item.dataset.step === 'rendering') item.hidden = currentRun?.options.renderWaitMs === 0
+  }
+
+  const segments = segmentCount(total)
+  if (nowBar.children.length !== segments) {
+    nowBar.replaceChildren(...Array.from({ length: segments }, () => Object.assign(document.createElement('span'), { className: 'tick' })))
+  }
+  const filled = filledSegments(done, total, segments)
+  const working = current !== undefined ? filledSegments(done + 1, total, segments) : filled
+  for (const [index, segment] of [...nowBar.children].entries()) {
+    segment.className = `tick${index < filled ? ' done' : index < working ? ' now' : ''}`
+  }
+  nowBar.setAttribute('aria-valuemin', '0')
+  nowBar.setAttribute('aria-valuemax', String(total))
+  nowBar.setAttribute('aria-valuenow', String(done))
+
+  skipButton.disabled = skippableRow() === undefined
 }
 
 function endProgress(): void {
@@ -1017,7 +1096,7 @@ function setRunning(on: boolean): void {
   tabsNoneButton.disabled = on
   for (const control of formControls()) control.disabled = on
   startButton.hidden = on
-  stopButton.hidden = !on
+  nowCard.hidden = !on
   stopButton.disabled = false
   for (const row of rows) row.retry.hidden = on || (row.state !== 'failed' && row.state !== 'skipped')
   retryFailedButton.hidden = on || !rows.some((row) => row.state === 'failed' || row.state === 'skipped')
