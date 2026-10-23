@@ -10,7 +10,7 @@
 ### Full-page screenshots, taken and kept on your own computer.
 
 Capture a whole page, the visible area or a selection, then edit it and export PNG, JPEG, WebP, or a
-PDF with searchable text and clickable links. For Chrome, Brave, Firefox and Zen. No account, and
+PDF with searchable text and clickable links. For Chrome, Brave, Edge, Firefox and Zen. No account, and
 nothing uploaded unless you send it.
 
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20Web%20Store&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf) [![Chrome users](https://img.shields.io/chrome-web-store/users/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20users&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf) [![Chrome rating](https://img.shields.io/chrome-web-store/rating/ndinpmhlpgieahdpmkibnngijihalclf?label=Chrome%20rating&color=4285F4)](https://chromewebstore.google.com/detail/ndinpmhlpgieahdpmkibnngijihalclf/reviews) [![Firefox Add-ons](https://img.shields.io/amo/v/pageshotter?label=Firefox%20Add-ons&color=FF7139)](https://addons.mozilla.org/firefox/addon/pageshotter/)<br />
