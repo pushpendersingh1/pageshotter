@@ -77,12 +77,12 @@ nothing uploaded unless you send it.
 - **Present.** Wrap a capture in a mock browser window with a background, margin, corners, shadow
   and date stamp.
 - **History.** Reopen and re-export earlier captures, and search them by the words on the page.
-- **Right-click menu** *(next release)*. Full page, visible area or selection from the page's own
+- **Right-click menu**. Full page, visible area or selection from the page's own
   menu.
-- **Batch capture** *(next release)*. Paste a list of addresses, or pick from the tabs open in a
+- **Batch capture**. Paste a list of addresses, or pick from the tabs open in a
   window; each page is captured and saved as its own file, with a report of anything that failed and
   a Retry for it. Open tabs are captured where they are, as they are, and left open.
-- **Send to Gmail** *(next release)*. Opens a new Gmail message with the screenshot already attached,
+- **Send to Gmail**. Opens a new Gmail message with the screenshot already attached,
   in the format you picked; you write it and press Send.
 
 <table>
@@ -99,11 +99,11 @@ nothing uploaded unless you send it.
 ## Why you can trust it
 
 - **The code is all here.** Every line of the extension is in this repository under the MIT license,
-  and the packages in both stores are built from it with `npm run package` and
+  and the package in each store is built from it with `npm run package`, `npm run package:edge` or
   `npm run package:firefox`.
-- **Both stores reviewed it.** Google reviews every release before it reaches the Chrome Web Store.
-  Mozilla reviewed it before listing it on Firefox Add-ons, with the full source and the build
-  instructions submitted alongside the package.
+- **Every store reviewed it.** Google reviews every release before it reaches the Chrome Web Store,
+  and Microsoft before it reaches Edge Add-ons. Mozilla reviewed it before listing it on Firefox
+  Add-ons, with the full source and the build instructions submitted alongside the package.
 - **Nothing leaves your computer unless you send it.** No server, account, analytics, webfont or
   remote code: what the stores reviewed is all that runs. Send to Gmail puts the file in your own
   Gmail, only when you press it. The permissions are listed below, and the optional ones are asked
@@ -131,10 +131,10 @@ lists exactly what is stored and for how long.
 | --- | --- | --- |
 | `activeTab` | On install | Lets PageShotter reach the tab you are on, and only after you click its icon, press its shortcut or pick it from the right-click menu. |
 | `scripting` | On install | Runs the scrolling, measuring and selection code in that tab, and undoes every change it makes there. |
-| `contextMenus` | On install *(next release)* | Adds the capture items to the page's right-click menu. |
+| `contextMenus` | On install | Adds the capture items to the page's right-click menu. |
 | `downloads` | Only when needed | When you choose to save into a folder, or start a batch capture. |
-| Access to all websites | Only when needed *(next release)* | When you start a batch capture or list your open tabs for one: the browser lets an extension read another tab's address, or capture a tab you didn't click it on, only with this access. |
-| Access to `mail.google.com` | Only when needed *(next release)* | When you press Gmail: it lets PageShotter open a new message in your Gmail tab and attach the screenshot to it. In Firefox the same prompt also asks to share website content, Mozilla's term for it, because the screenshot leaves PageShotter for Gmail. |
+| Access to all websites | Only when needed | When you start a batch capture or list your open tabs for one: the browser lets an extension read another tab's address, or capture a tab you didn't click it on, only with this access. |
+| Access to `mail.google.com` | Only when needed | When you press Gmail: it lets PageShotter open a new message in your Gmail tab and attach the screenshot to it. In Firefox the same prompt also asks to share website content, Mozilla's term for it, because the screenshot leaves PageShotter for Gmail. |
 
 There is no `storage`, `history`, `cookies` or `webRequest` permission, and no standing access to the
 sites you visit or to your Gmail.
@@ -143,7 +143,7 @@ sites you visit or to your Gmail.
 
 ## Build and load it yourself
 
-Requires Node.js 22+, and Chrome or Edge 120+ or Firefox 153+.
+Requires Node.js 22+, and Chrome or Edge 120+, Opera 106+ or Firefox 153+.
 
 ```bash
 npm ci
@@ -154,10 +154,12 @@ npm run build:edge    # build dist-edge/ for Microsoft Edge
 npm run package:edge  # build + zip for Edge Add-ons
 npm run build:firefox # build dist-firefox/ for Firefox
 npm run package:firefox # build + zip for Firefox Add-ons, plus the source zip AMO requires
+npm run build:opera   # build dist-opera/ for Opera, unminified
+npm run package:opera # build + zip for Opera add-ons
 ```
 
-Then open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, choose
-**Load unpacked** and select `dist/` (or `dist-edge/`). In Firefox 153 or later, open
+Then open `chrome://extensions` (or `edge://extensions`, `opera://extensions`), turn on
+**Developer mode**, choose **Load unpacked** and select `dist/` (or `dist-edge/`, `dist-opera/`). In Firefox 153 or later, open
 `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on** and pick
 `dist-firefox/manifest.json`. Chrome must keep the source tab active during a full-page capture, because
 `tabs.captureVisibleTab()` only captures the active tab.

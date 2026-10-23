@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "PageShotter - Full Page Screenshot",
   "short_name": "PageShotter",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "minimum_chrome_version": "120",
   "description": "Capture, edit, and annotate full-page, visible-area, or element screenshots locally. Export searchable PDFs with clickable links.",
   "permissions": [
