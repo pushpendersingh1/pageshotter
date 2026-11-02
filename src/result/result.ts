@@ -13,6 +13,7 @@ import {
   DEFAULT_DOWNLOAD_FOLDER,
   getAutoDownload,
   getDownloadFolder,
+  getFilenameTemplate,
   setDownloadFolder,
 } from '../shared/history-settings'
 import { buildTiledImage, encodeImage, encodePng, type TiledImage } from './stitcher'
@@ -587,7 +588,7 @@ async function runExport(): Promise<void> {
     return
   }
   const extension = exportFileExtension(format)
-  const suggested = suggestedFilename({ title: pageTitle, url: pageUrl, capturedAt, extension })
+  const suggested = suggestedFilename({ title: pageTitle, url: pageUrl, capturedAt, extension }, await getFilenameTemplate())
   const folder = await getDownloadFolder().catch(() => DEFAULT_DOWNLOAD_FOLDER)
   const permissionGranted = folder === '' || (await hasDownloadsPermission())
 
@@ -636,7 +637,7 @@ async function maybeSaveAndClose(): Promise<void> {
     const blob = await encodeExport(format)
     if (!blob) return
 
-    const filename = suggestedFilename({ title: pageTitle, url: pageUrl, capturedAt, extension })
+    const filename = suggestedFilename({ title: pageTitle, url: pageUrl, capturedAt, extension }, await getFilenameTemplate())
     if ((await saveBlob(blob, { filename, folder })) !== 'saved') return
 
     // The counter moves, the ask does not: a popover in a tab that is about to close would be spent
@@ -988,7 +989,10 @@ async function emailCapture(access: Promise<boolean>): Promise<void> {
       showExportError([noticeText(tooLarge)])
       return
     }
-    const filename = suggestedFilename({ title: pageTitle, url: pageUrl, capturedAt, extension: exportFileExtension(format) })
+    const filename = suggestedFilename(
+      { title: pageTitle, url: pageUrl, capturedAt, extension: exportFileExtension(format) },
+      await getFilenameTemplate(),
+    )
     const outcome = await sendToGmail(blob, filename)
     if (outcome !== 'attached') {
       showExportError([noticeText(gmailOutcomeMessage(outcome))])

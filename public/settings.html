@@ -164,6 +164,16 @@
           <h2 class="eyebrow" id="saving-heading"><svg class="icon" data-icon="folder" viewBox="0 0 24 24" aria-hidden="true" focusable="false"></svg>Saving</h2>
           <div class="field">
             <div class="field-text">
+              <label class="row-label" for="filename-template">File name</label>
+              <p class="note" id="filename-help">Use {date}, {time}, {host} and {title}. Names are lower-case, with dashes between words. Leave it empty for the default.</p>
+              <p class="note problem" id="filename-problem" role="alert" hidden></p>
+              <p class="note filename-preview" id="filename-preview" role="status"></p>
+            </div>
+            <input id="filename-template" type="text" spellcheck="false" autocomplete="off" maxlength="120" aria-describedby="filename-help filename-problem filename-preview" />
+          </div>
+
+          <div class="field">
+            <div class="field-text">
               <label class="row-label" for="download-folder">Save into a folder</label>
               <p class="note" id="folder-help">A folder inside your Downloads, created on the first save into it. Leave it empty to save straight to Downloads. PageShotter cannot choose anywhere else.</p>
               <p class="note problem" id="folder-problem" role="alert" hidden></p>

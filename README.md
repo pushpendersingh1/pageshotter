@@ -84,6 +84,8 @@ nothing uploaded unless you send it.
   a Retry for it. Open tabs are captured where they are, as they are, and left open.
 - **Send to Gmail**. Opens a new Gmail message with the screenshot already attached,
   in the format you picked; you write it and press Send.
+- **File names you choose** (next release). Build the name from `{date}`, `{time}`, `{host}` and
+  `{title}` in Settings.
 
 <table>
   <tr>

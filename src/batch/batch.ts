@@ -2,7 +2,7 @@ import { BROWSER } from '../shared/browser'
 import { deleteCapture, getSegments } from '../shared/capture-db'
 import { downloadPath } from '../shared/download-folder'
 import { suggestedFilename } from '../shared/filename'
-import { DEFAULT_DOWNLOAD_FOLDER, getDownloadFolder } from '../shared/history-settings'
+import { DEFAULT_DOWNLOAD_FOLDER, getDownloadFolder, getFilenameTemplate } from '../shared/history-settings'
 import type { CaptureJob, RuntimeRequest, RuntimeResponse } from '../shared/messages'
 import { applyStoredTheme, wireThemeButton } from '../shared/theme'
 import { waitForDownloadCompletion, type DownloadsApi } from '../result/download-completion'
@@ -900,12 +900,15 @@ async function saveJob(job: CaptureJob, row: Row, run: Run): Promise<number | un
   const name = batchFilename(
     row.position,
     run.total,
-    suggestedFilename({
-      title: job.title,
-      url: job.url,
-      capturedAt: new Date(job.createdAt),
-      extension: exportFileExtension(run.format),
-    }),
+    suggestedFilename(
+      {
+        title: job.title,
+        url: job.url,
+        capturedAt: new Date(job.createdAt),
+        extension: exportFileExtension(run.format),
+      },
+      await getFilenameTemplate(),
+    ),
   )
   const url = URL.createObjectURL(blob)
   try {
