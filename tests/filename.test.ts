@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_FILENAME_TEMPLATE,
   filenameProblem,
+  filenameTemplateProblem,
   sanitiseTypedFilename,
   suggestedFilename,
 } from '../src/shared/filename'
@@ -131,5 +133,47 @@ describe('filenameProblem', () => {
   it('accepts a reserved device name, which is repaired rather than refused', () => {
     expect(filenameProblem('CON')).toBeUndefined()
     expect(sanitiseTypedFilename('CON')).toBe('CON-capture')
+  })
+})
+
+describe('filename templates', () => {
+  it('the default template is the name an empty setting has always produced', () => {
+    expect(suggestedFilename(base, DEFAULT_FILENAME_TEMPLATE)).toBe(suggestedFilename(base))
+    expect(suggestedFilename(base)).toBe('2026-08-28-090503-developer-mozilla-org-quarterly-report.png')
+  })
+
+  it('fills each part and keeps literal text', () => {
+    expect(suggestedFilename(base, '{title}')).toBe('quarterly-report.png')
+    expect(suggestedFilename(base, 'Acme {host} {date}')).toBe('acme-developer-mozilla-org-2026-08-28.png')
+    expect(suggestedFilename(base, '{time}')).toBe('090503.png')
+  })
+
+  it('never lets a template pick a directory or an extension', () => {
+    expect(suggestedFilename(base, '../../etc/{title}')).toBe('etc-quarterly-report.png')
+    expect(suggestedFilename(base, '{title}.jpg')).toBe('quarterly-report-jpg.png')
+  })
+
+  it('falls back when a template renders to nothing', () => {
+    expect(suggestedFilename({ ...base, title: '' }, '{title}')).toBe('pageshotter-capture.png')
+    expect(suggestedFilename(base, '///')).toBe('pageshotter-capture.png')
+  })
+
+  it('still caps the name before the extension', () => {
+    const name = suggestedFilename({ ...base, title: 'x'.repeat(500) }, '{title}')
+    expect(name).toBe(`${'x'.repeat(120)}.png`)
+  })
+
+  it('does not read names off the object prototype', () => {
+    expect(suggestedFilename(base, '{constructor}')).toBe('constructor.png')
+  })
+
+  it('refuses unknown parts and too much text, and accepts the rest', () => {
+    expect(filenameTemplateProblem(DEFAULT_FILENAME_TEMPLATE)).toBeUndefined()
+    expect(filenameTemplateProblem('report')).toBeUndefined()
+    expect(filenameTemplateProblem('')).toBeUndefined()
+    expect(filenameTemplateProblem('{tilte}')).toContain('{tilte}')
+    expect(filenameTemplateProblem('{constructor}')).toContain('{constructor}')
+    expect(filenameTemplateProblem('{}')).toContain('{}')
+    expect(filenameTemplateProblem('x'.repeat(121))).toBeDefined()
   })
 })

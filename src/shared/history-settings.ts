@@ -1,5 +1,6 @@
 import { getSetting, putSetting, putSettingIf } from './capture-db'
 import { sanitiseFolder } from './download-folder'
+import { DEFAULT_FILENAME_TEMPLATE, filenameTemplateProblem } from './filename'
 import { DEFAULT_HISTORY_LIMITS, type HistoryLimits } from './history-policy'
 
 /**
@@ -124,6 +125,23 @@ function isStoredDownloadFolder(value: unknown): value is StoredDownloadFolder {
     typeof candidate.updatedAt === 'number' &&
     Number.isFinite(candidate.updatedAt)
   )
+}
+
+const FILENAME_TEMPLATE_KEY = 'filenameTemplate'
+
+/**
+ * Never rejects and never returns an unusable pattern: a name is not a reason to lose an export, so
+ * a failed read or a damaged value falls back to the default.
+ */
+export async function getFilenameTemplate(): Promise<string> {
+  const stored = await getSetting<unknown>(FILENAME_TEMPLATE_KEY).catch(() => undefined)
+  return typeof stored === 'string' && stored.trim() !== '' && filenameTemplateProblem(stored) === undefined
+    ? stored
+    : DEFAULT_FILENAME_TEMPLATE
+}
+
+export async function setFilenameTemplate(template: string): Promise<void> {
+  await putSetting(FILENAME_TEMPLATE_KEY, template)
 }
 
 const AUTO_DOWNLOAD_KEY = 'autoDownload'

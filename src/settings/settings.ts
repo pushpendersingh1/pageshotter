@@ -30,12 +30,15 @@ import {
   getContextMenu,
   setContextMenu,
   getDownloadFolder,
+  getFilenameTemplate,
   clearDownloadFolderRevokedBefore,
   getHistorySettings,
   setDownloadFolder,
+  setFilenameTemplate,
   setHistorySettings,
 } from '../shared/history-settings'
 import { folderProblem, sanitiseFolder } from '../shared/download-folder'
+import { DEFAULT_FILENAME_TEMPLATE, filenameTemplateProblem, suggestedFilename } from '../shared/filename'
 import { deleteHistoryEntries, listHistory } from '../shared/capture-db'
 import { captureShortcut } from '../shared/shortcut'
 import { showContextMenu } from '../shared/context-menu'
@@ -86,6 +89,9 @@ const deleteAllNote = requiredElement<HTMLParagraphElement>('delete-all-note')
 const deleteAllDialog = requiredElement<HTMLDialogElement>('delete-all-dialog')
 const deleteAllDetail = requiredElement<HTMLParagraphElement>('delete-all-detail')
 const downloadFolder = requiredElement<HTMLInputElement>('download-folder')
+const filenameTemplate = requiredElement<HTMLInputElement>('filename-template')
+const filenameProblemNote = requiredElement<HTMLElement>('filename-problem')
+const filenamePreview = requiredElement<HTMLElement>('filename-preview')
 const folderProblemNote = requiredElement<HTMLParagraphElement>('folder-problem')
 const folderPermissionRow = requiredElement<HTMLDivElement>('folder-permission-row')
 const folderExplain = requiredElement<HTMLDetailsElement>('folder-explain')
@@ -130,6 +136,22 @@ async function initialise(): Promise<void> {
     retentionSelect.append(option)
   }
 
+  filenameTemplate.value = await getFilenameTemplate()
+  filenameTemplate.placeholder = DEFAULT_FILENAME_TEMPLATE
+  drawFilenamePreview()
+  filenameTemplate.addEventListener('input', () => {
+    const problem = drawFilenamePreview()
+    if (problem === undefined) void setFilenameTemplate(filenameTemplate.value.trim()).catch(() => undefined)
+  })
+  filenameTemplate.addEventListener('blur', () => {
+    // A pattern that was refused was never saved, so show what is really in force.
+    if (filenameTemplateProblem(filenameTemplate.value) !== undefined || filenameTemplate.value.trim() === '') {
+      void getFilenameTemplate().then((template) => {
+        filenameTemplate.value = template
+        drawFilenamePreview()
+      })
+    }
+  })
   savedDownloadFolder = await getDownloadFolder()
   downloadFolder.value = savedDownloadFolder
   refreshFolderNotes()
@@ -499,6 +521,22 @@ function drawExportSettings(): void {
   drawExportCautions()
 }
 
+/** Draws the field's state and returns its problem, if any, so a caller can decide whether to save. */
+function drawFilenamePreview(): string | undefined {
+  const template = filenameTemplate.value.trim() || DEFAULT_FILENAME_TEMPLATE
+  const problem = filenameTemplateProblem(template)
+  filenameTemplate.classList.toggle('invalid', problem !== undefined)
+  filenameTemplate.setAttribute('aria-invalid', problem === undefined ? 'false' : 'true')
+  filenameProblemNote.textContent = problem ?? ''
+  filenameProblemNote.hidden = problem === undefined
+  filenamePreview.hidden = problem !== undefined
+  filenamePreview.textContent = `For example: ${suggestedFilename(
+    { title: 'Example page', url: 'https://www.example.com/', capturedAt: new Date(), extension: 'png' },
+    template,
+  )}`
+  return problem
+}
+
 /**
  * One reset for the whole page: every control goes back to the default
  * its owning module exports — no default is copied here — and each one is written the same way a
@@ -516,6 +554,7 @@ async function resetToDefaults(): Promise<void> {
       setAutoDownload(DEFAULT_AUTO_DOWNLOAD),
       setContextMenu(DEFAULT_CONTEXT_MENU).then(() => showContextMenu(DEFAULT_CONTEXT_MENU)),
       setDownloadFolder(DEFAULT_DOWNLOAD_FOLDER),
+      setFilenameTemplate(DEFAULT_FILENAME_TEMPLATE),
       setExportPreferences(DEFAULT_EXPORT_PREFERENCES),
     ])
     await apply({ retentionDays: DEFAULT_HISTORY_SETTINGS.retentionDays })
@@ -528,6 +567,8 @@ async function resetToDefaults(): Promise<void> {
     contextMenuSwitch.checked = DEFAULT_CONTEXT_MENU
     savedDownloadFolder = DEFAULT_DOWNLOAD_FOLDER
     downloadFolder.value = DEFAULT_DOWNLOAD_FOLDER
+    filenameTemplate.value = DEFAULT_FILENAME_TEMPLATE
+    drawFilenamePreview()
     exportPreferences = structuredClone(DEFAULT_EXPORT_PREFERENCES)
     drawLongPageNote()
     drawSectionWaitNote()

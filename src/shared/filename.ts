@@ -9,8 +9,8 @@
  *
  * - **The extension is appended after the length cap**, so a long title can never cut it off and a
  *   PNG can never be called `report.jpg`.
- * - **The result can never contain a path separator.** Every part is slugified to
- *   `[a-z0-9-]`, so a title of `../../etc/passwd` becomes `etc-passwd` rather than an escape. Saving
+ * - **The result can never contain a path separator.** The whole name, template text included, is
+ *   slugified to `[a-z0-9-]`, so a title of `../../etc/passwd` becomes `etc-passwd` rather than an escape. Saving
  *   into a folder is a separate capability that goes through the downloads API on purpose; a
  *   filename must not be able to smuggle one in.
  */
@@ -25,6 +25,15 @@ export type SuggestedFilenameParts = {
 
 const FALLBACK = 'pageshotter-capture'
 const SUGGESTED_MAX_LENGTH = 120
+
+/**
+ * Date first, so a directory listing sorts chronologically; then the host and the title, which are
+ * what someone scanning for one capture actually reads.
+ */
+export const DEFAULT_FILENAME_TEMPLATE = '{date}-{time}-{host}-{title}'
+export const FILENAME_TEMPLATE_MAX_LENGTH = 120
+const TEMPLATE_PART = /\{([^{}]*)\}/g
+const TEMPLATE_PARTS = ['date', 'time', 'host', 'title']
 
 /** Reduce any text to the safe alphabet. Accents fold to their base letter rather than vanishing. */
 function slug(value: string): string {
@@ -50,28 +59,41 @@ function hostOf(url: string | undefined): string {
 }
 
 /**
- * The name the save dialog suggests: `yyyy-mm-dd-HHMMSS-host-title.ext`.
+ * The name the save dialog suggests, from the template in Settings.
  *
- * Date first, so a directory listing sorts chronologically; then the host and the title, which are
- * what someone scanning for one capture actually reads. Calendar fields come from the local clock,
- * not UTC: a capture taken at 22:30 on the 5th is named for the 5th, the day the person remembers.
- *
- * ponytail: one fixed pattern. A configurable naming template is new work for an accepted
- * requirement; the old interpreter is recoverable from git history.
+ * Calendar fields come from the local clock, not UTC: a capture taken at 22:30 on the 5th is named
+ * for the 5th, the day the person remembers.
  */
-export function suggestedFilename(parts: SuggestedFilenameParts): string {
+export function suggestedFilename(
+  parts: SuggestedFilenameParts,
+  template: string = DEFAULT_FILENAME_TEMPLATE,
+): string {
   const at = parts.capturedAt
-  const date = `${pad(at.getFullYear(), 4)}-${pad(at.getMonth() + 1, 2)}-${pad(at.getDate(), 2)}`
-  const time = `${pad(at.getHours(), 2)}${pad(at.getMinutes(), 2)}${pad(at.getSeconds(), 2)}`
+  const values = new Map([
+    ['date', `${pad(at.getFullYear(), 4)}-${pad(at.getMonth() + 1, 2)}-${pad(at.getDate(), 2)}`],
+    ['time', `${pad(at.getHours(), 2)}${pad(at.getMinutes(), 2)}${pad(at.getSeconds(), 2)}`],
+    ['host', hostOf(parts.url)],
+    ['title', slug(parts.title)],
+  ])
+  const rendered = template.replace(TEMPLATE_PART, (match, name: string) => values.get(name) ?? match)
   /*
    * Slugified once more over the whole string. This collapses the run of dashes an empty host or
    * title leaves behind, and is the single place that guarantees the separator and traversal rules
-   * above. The date means the base is never empty, so no fallback is needed.
+   * above. A template of only `{title}` on an untitled page can leave nothing, hence the fallback.
    */
-  const base = slug(`${date}-${time}-${hostOf(parts.url)}-${slug(parts.title)}`)
-    .slice(0, SUGGESTED_MAX_LENGTH)
-    .replace(/-+$/, '')
-  return `${base}.${parts.extension}`
+  const base = slug(rendered).slice(0, SUGGESTED_MAX_LENGTH).replace(/-+$/, '')
+  return `${base || FALLBACK}.${parts.extension}`
+}
+
+/** Why a template cannot be saved, or `undefined` if it can. An empty one means the default. */
+export function filenameTemplateProblem(template: string): string | undefined {
+  if (template.length > FILENAME_TEMPLATE_MAX_LENGTH) return 'That pattern is too long.'
+  for (const [part, name] of template.matchAll(TEMPLATE_PART)) {
+    if (!TEMPLATE_PARTS.includes(name ?? '')) {
+      return `${part} is not available. Use {date}, {time}, {host} or {title}.`
+    }
+  }
+  return undefined
 }
 
 /*

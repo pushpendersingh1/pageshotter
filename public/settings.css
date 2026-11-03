@@ -159,7 +159,8 @@ select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
  * The folder box. Same shape as the retention select beside it, so the Saving group reads as one
  * row of controls rather than a text field bolted onto a list of dropdowns.
  */
-#download-folder {
+#download-folder,
+#filename-template {
   flex: none;
   width: min(210px, 38vw);
   border: 1px solid var(--line);
@@ -169,10 +170,13 @@ select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
   font: 400 13.5px/1.2 var(--ui);
   padding: 9px 11px;
 }
-#download-folder:focus-visible { border-color: var(--select); }
-#download-folder.invalid { border-color: var(--accent); }
+#download-folder:focus-visible,
+#filename-template:focus-visible { border-color: var(--select); }
+#download-folder.invalid,
+#filename-template.invalid { border-color: var(--accent); }
 /* 14px is the floor for --accent on a light ground; see design-language section 11. */
 .note.problem { color: var(--accent); font-size: 14px; }
+.filename-preview { overflow-wrap: anywhere; }
 .folder-controls { flex: none; display: flex; align-items: center; gap: 8px; }
 .folder-status { font-size: 12.5px; }
 
@@ -218,7 +222,8 @@ select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
 
 @media (max-width: 560px) {
   .folder-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
-  #download-folder { width: 100%; min-width: 0; }
+  #download-folder,
+  #filename-template { width: 100%; min-width: 0; }
 }
 
 /*
