@@ -42,6 +42,6 @@
     "node": ">=22"
   },
   "dependencies": {
-    "konva": "10.9.0"
+    "konva": "10.9.1"
   }
 }
